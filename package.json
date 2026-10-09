@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "dev:web": "pnpm --filter @webtools/web dev",
-    "dev:worker": "pnpm --filter @webtools/worker dev"
+    "dev:worker": "pnpm --filter @webtools/worker dev",
+    "test": "pnpm --filter @webtools/core test"
   },
   "keywords": [],
   "author": "",
