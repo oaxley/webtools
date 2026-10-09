@@ -1,6 +1,6 @@
 
 import { Hono } from "hono";
-import { calculateCIDR } from "@webtools/core";
+import { calculateCIDR, isRoutable } from "@webtools/core";
 
 const app = new Hono();
 
@@ -12,7 +12,7 @@ app.get("/api/v1/ip", (c) => {
   }
 
   try {
-    return c.json(calculateCIDR(cidr));
+    return c.json({ ...calculateCIDR(cidr), routable: isRoutable(cidr) });
   } catch (e) {
     return c.json({ error: e instanceof Error ? e.message : "Invalid IPv4 CIDR" }, 400);
   }
