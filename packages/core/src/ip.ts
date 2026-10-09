@@ -82,3 +82,37 @@ export function calculateCIDR(cidr: string): CidrResult {
         usableHosts,
     };
 }
+
+/** IPv4 blocks that are not publicly routable: [network, prefix]. */
+const NON_ROUTABLE_BLOCKS: Array<[number, number]> = [
+    [0x00_00_00_00, 8], // "This network" (0.0.0.0/8)
+    [0x0a_00_00_00, 8], // Private use, RFC 1918 (10.0.0.0/8)
+    [0x64_40_00_00, 10], // Shared address space / CGNAT, RFC 6598 (100.64.0.0/10)
+    [0x7f_00_00_00, 8], // Loopback (127.0.0.0/8)
+    [0xa9_fe_00_00, 16], // Link-local (169.254.0.0/16)
+    [0xac_10_00_00, 12], // Private use, RFC 1918 (172.16.0.0/12)
+    [0xc0_00_00_00, 24], // IANA special purpose (192.0.0.0/24)
+    [0xc0_00_02_00, 24], // Documentation TEST-NET-1 (192.0.2.0/24)
+    [0xc0_a8_00_00, 16], // Private use, RFC 1918 (192.168.0.0/16)
+    [0xc6_12_00_00, 15], // Benchmarking, RFC 2544 (198.18.0.0/15)
+    [0xc6_33_64_00, 24], // Documentation TEST-NET-2 (198.51.100.0/24)
+    [0xcb_00_71_00, 24], // Documentation TEST-NET-3 (203.0.113.0/24)
+    [0xe0_00_00_00, 4], // Multicast (224.0.0.0/4)
+    [0xf0_00_00_00, 4], // Reserved for future use (240.0.0.0/4)
+];
+
+/**
+ * Returns false when the subnet's network address falls inside a
+ * well-known non-publicly-routable block (private, loopback, link-local,
+ * multicast, reserved, documentation, CGNAT, …), true otherwise.
+ * Throws on invalid CIDR input, like {@link calculateCIDR}.
+ */
+export function isRoutable(cidr: string): boolean {
+    const { network } = calculateCIDR(cidr);
+    const [a, b, c, d] = network.split(".").map(Number);
+    const ip = ((a * 256 ** 3 + b * 256 ** 2 + c * 256 + d) >>> 0);
+    return !NON_ROUTABLE_BLOCKS.some(([block, blockPrefix]) => {
+        const mask = blockPrefix === 0 ? 0 : ((0xffffffff << (32 - blockPrefix)) >>> 0);
+        return ((ip & mask) >>> 0) === block;
+    });
+}

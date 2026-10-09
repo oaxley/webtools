@@ -1,5 +1,5 @@
 /**
- * Exhaustive tests for `calculateCIDR` (../src/ip.ts).
+ * Exhaustive tests for `calculateCIDR` and `isRoutable` (../src/ip.ts).
  *
  * All core `ip.ts` tests live in this one file on purpose: when new
  * functions are added in other src files, they get their own
@@ -11,7 +11,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateCIDR, type CidrResult } from "../src/ip.ts";
+import { calculateCIDR, isRoutable, type CidrResult } from "../src/ip.ts";
 
 const IPV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
@@ -477,5 +477,71 @@ describe("calculateCIDR - invalid input throws", () => {
         const r = calculateCIDR("192.168.1.0/");
         assert.strictEqual(r.prefix, 0);
         assert.strictEqual(r.network, "0.0.0.0");
+    });
+});
+
+describe("isRoutable", () => {
+    it("private RFC 1918 ranges are not routable", () => {
+        for (const input of [
+            "10.0.0.0/8",
+            "10.1.2.3/8",
+            "172.16.0.0/12",
+            "172.31.255.255/32",
+            "192.168.0.0/16",
+            "192.168.1.0/24",
+        ]) {
+            assert.strictEqual(isRoutable(input), false, input);
+        }
+    });
+
+    it("special-purpose blocks are not routable", () => {
+        for (const input of [
+            "0.0.0.0/0", // "this network"
+            "127.0.0.1/8", // loopback
+            "169.254.10.20/16", // link-local
+            "100.64.0.0/10", // CGNAT shared space
+            "100.127.255.255/32",
+            "192.0.0.0/24", // IANA special
+            "192.0.2.0/24", // documentation TEST-NET-1
+            "198.51.100.0/24", // documentation TEST-NET-2
+            "203.0.113.0/24", // documentation TEST-NET-3
+            "198.18.0.0/15", // benchmarking
+            "224.0.0.0/4", // multicast
+            "239.1.2.3/32",
+            "240.0.0.1/32", // reserved
+        ]) {
+            assert.strictEqual(isRoutable(input), false, input);
+        }
+    });
+
+    it("public unicast space is routable", () => {
+        for (const input of [
+            "8.8.8.0/24",
+            "1.1.1.1/32",
+            "11.0.0.0/8",
+            "9.255.255.255/32",
+            "100.63.255.255/32", // just below CGNAT
+            "100.128.0.0/16", // just above CGNAT
+            "172.15.255.255/32", // just below 172.16/12
+            "172.32.0.0/16", // just above 172.16/12
+            "192.167.255.255/32",
+            "192.169.0.0/24",
+            "223.255.255.255/32", // just below multicast
+            "128.0.0.0/1", // upper half of the address space
+        ]) {
+            assert.strictEqual(isRoutable(input), true, input);
+        }
+    });
+
+    it("host bits are masked off before the check", () => {
+        // 192.168.1.200/25 normalizes to network 192.168.1.128 (private).
+        assert.strictEqual(isRoutable("192.168.1.200/25"), false);
+        assert.strictEqual(isRoutable("  8.8.8.8/32  "), true);
+    });
+
+    it("throws on invalid CIDR input", () => {
+        for (const input of ["foo", "10.0.0.0/33", "256.0.0.0/24"]) {
+            assert.throws(() => isRoutable(input), Error, input);
+        }
     });
 });
