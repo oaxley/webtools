@@ -12,7 +12,7 @@ export interface CidrResult {
 export function calculateCIDR(cidr: string): CidrResult {
     const parts = cidr.trim().split("/");
     if (parts.length !== 2) {
-        throw new Error(`Invalid CIDR notation: "${cidr}". Expected format: <ipv4>/<prefix> (e.g. 192.168.1.0/24).`);
+        throw new Error(`Invalid CIDR notation: '${cidr}'. Expected format: <ipv4>/<prefix> (e.g. 192.168.1.0/24).`);
     }
 
     const [ipStr, prefixStr] = parts;
