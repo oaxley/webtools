@@ -1,21 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { calculateCIDR, type CidrResult } from '@webtools/core'
+import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
 import './IpCalculator.css'
 
 const DEFAULT_CIDR = '192.168.1.0/24'
 const EXAMPLES = ['10.0.0.0/8', '172.16.0.0/12', '192.168.1.0/25', '10.10.10.0/30']
 
 type Outcome =
-  | { ok: true; result: CidrResult }
+  | { ok: true; result: CidrResult; routable: boolean }
   | { ok: false; error: string };
+
+function splitCidr(cidr: string): [string, string] {
+  const i = cidr.indexOf('/')
+  return i === -1 ? [cidr, ''] : [cidr.slice(0, i), cidr.slice(i + 1)]
+}
 
 function IpCalculator() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [input, setInput] = useState(() => searchParams.get('cidr') ?? DEFAULT_CIDR)
-  const [submitted, setSubmitted] = useState(
-    () => searchParams.get('cidr') ?? DEFAULT_CIDR,
-  )
+  const initial = searchParams.get('cidr') ?? DEFAULT_CIDR
+  const [input, setInput] = useState(initial)
+  const [submitted, setSubmitted] = useState(initial)
+  const [netEdit, setNetEdit] = useState(() => splitCidr(initial)[0])
+  const [prefixEdit, setPrefixEdit] = useState(() => splitCidr(initial)[1])
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = 'IP Subnet Calculator — WebTools'
@@ -23,15 +30,46 @@ function IpCalculator() {
 
   const outcome: Outcome = useMemo(() => {
     try {
-      return { ok: true, result: calculateCIDR(submitted) }
+      return { ok: true, result: calculateCIDR(submitted), routable: isRoutable(submitted) }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'Invalid IPv4 CIDR' }
     }
   }, [submitted])
 
   const submit = (value: string) => {
+    const [net, prefix] = splitCidr(value.trim())
     setSubmitted(value)
+    setInput(value)
+    setNetEdit(net)
+    setPrefixEdit(prefix)
+    setDraftError(null)
     setSearchParams(value ? { cidr: value } : {}, { replace: true })
+  }
+
+  // Live-update from the editable Network / Prefix rows. Valid combinations
+  // recompute the whole table immediately; invalid ones keep the last good
+  // result and show an inline hint instead of wiping the table mid-typing.
+  const applyDraft = (net: string, prefix: string) => {
+    const combined = `${net.trim()}/${prefix.trim()}`
+    try {
+      calculateCIDR(combined)
+      setSubmitted(combined)
+      setInput(combined)
+      setDraftError(null)
+      setSearchParams({ cidr: combined }, { replace: true })
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : 'Invalid IPv4 CIDR')
+    }
+  }
+
+  const onNetChange = (net: string) => {
+    setNetEdit(net)
+    applyDraft(net, prefixEdit)
+  }
+
+  const onPrefixChange = (prefix: string) => {
+    setPrefixEdit(prefix)
+    applyDraft(netEdit, prefix)
   }
 
   return (
@@ -84,9 +122,73 @@ function IpCalculator() {
         <table className="result-table">
           <tbody>
             <tr>
-              <th scope="row">Network</th>
+              <th scope="row">
+                <label htmlFor="network-edit">
+                  Network
+                  <span className="tip">
+                    <button
+                      type="button"
+                      className="tip-trigger"
+                      aria-label="About the Network field"
+                      aria-describedby="network-tip"
+                    >
+                      ?
+                    </button>
+                    <span className="tip-bubble" role="tooltip" id="network-tip">
+                      Editable — change the address to recompute the subnet
+                      live. Host bits are masked off automatically.
+                    </span>
+                  </span>
+                  <span className="visually-hidden">(editable)</span>
+                </label>
+              </th>
               <td>
-                <code>{outcome.result.network}</code>
+                <input
+                  id="network-edit"
+                  className="cell-edit"
+                  type="text"
+                  value={netEdit}
+                  onChange={(e) => onNetChange(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Network address (editable)"
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <label htmlFor="prefix-edit">
+                  Prefix length
+                  <span className="tip">
+                    <button
+                      type="button"
+                      className="tip-trigger"
+                      aria-label="About the Prefix length field"
+                      aria-describedby="prefix-tip"
+                    >
+                      ?
+                    </button>
+                    <span className="tip-bubble" role="tooltip" id="prefix-tip">
+                      Editable — change the prefix (0–32) to recompute the
+                      subnet live.
+                    </span>
+                  </span>
+                  <span className="visually-hidden">(editable)</span>
+                </label>
+              </th>
+              <td>
+                <span className="prefix-edit">
+                  /
+                  <input
+                    id="prefix-edit"
+                    type="number"
+                    min={0}
+                    max={32}
+                    value={prefixEdit}
+                    onChange={(e) => onPrefixChange(e.target.value)}
+                    aria-label="Prefix length 0 to 32 (editable)"
+                  />
+                </span>
               </td>
             </tr>
             <tr>
@@ -99,12 +201,6 @@ function IpCalculator() {
               <th scope="row">Subnet mask</th>
               <td>
                 <code>{outcome.result.subnetMask}</code>
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">Prefix length</th>
-              <td>
-                <code>/{outcome.result.prefix}</code>
               </td>
             </tr>
             <tr>
@@ -127,11 +223,26 @@ function IpCalculator() {
               <th scope="row">Usable hosts</th>
               <td>{outcome.result.usableHosts.toLocaleString('en-US')}</td>
             </tr>
+            <tr>
+              <th scope="row">Routable</th>
+              <td>
+                {outcome.routable ? (
+                  <span className="badge badge-yes">Yes</span>
+                ) : (
+                  <span className="badge badge-no">No</span>
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
       ) : (
         <p className="error-box" role="alert">
           {outcome.error}
+        </p>
+      )}
+      {outcome.ok && draftError && (
+        <p className="draft-hint" role="status">
+          {draftError}
         </p>
       )}
 
@@ -191,6 +302,16 @@ function IpCalculator() {
               Total addresses minus the reserved network and broadcast
               addresses. A <code>/31</code> has 2 usable hosts and a{' '}
               <code>/32</code> has 1, since nothing is reserved there.
+            </dd>
+          </div>
+          <div>
+            <dt>Routable</dt>
+            <dd>
+              Whether the subnet is part of the publicly routable address
+              space. Private ranges (<code>10.0.0.0/8</code>,{' '}
+              <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>),
+              loopback, link-local, multicast, reserved and documentation
+              blocks are not routable on the public internet.
             </dd>
           </div>
         </dl>
