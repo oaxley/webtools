@@ -1,7 +1,7 @@
 .tool-page {
   flex-grow: 1;
   width: 100%;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 64px 24px;
   box-sizing: border-box;
@@ -81,6 +81,117 @@
   }
 }
 
+.error-box {
+  border: 1px solid #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--text-h);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 16px;
+}
+
+.draft-hint {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 16px;
+}
+
+.canvas-wrapper {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.canvas-stage {
+  position: relative;
+}
+
+.subnet-canvas {
+  display: block;
+}
+
+.subnet-overlay-input {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  text-align: center;
+  box-sizing: border-box;
+  height: 24px;
+
+  &:hover {
+    border-color: var(--border);
+    background: var(--bg);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-border);
+    background: var(--bg);
+  }
+}
+
+.prefix-overlay {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  height: 24px;
+}
+
+.prefix-slash {
+  color: var(--text);
+  padding-right: 2px;
+}
+
+.prefix-overlay input {
+  font: inherit;
+  color: var(--text-h);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 4px;
+  width: 56px;
+  box-sizing: border-box;
+  text-align: center;
+
+  &:hover {
+    border-color: var(--border);
+    background: var(--bg);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-border);
+    background: var(--bg);
+  }
+
+  /* Hide number spinners by default; they clutter the diagram. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.prefix-overlay input::-webkit-outer-spin-button,
+.prefix-overlay input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Mobile table fallback — same visual language as the v1 result table. */
 .result-table {
   width: 100%;
   border-collapse: separate;
@@ -88,7 +199,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   font-size: 16px;
-  margin: 0 0 48px;
+  margin: 0 0 16px;
 }
 
 .result-table th,
@@ -103,122 +214,40 @@
   border-bottom: none;
 }
 
-.result-table tr:first-child th:first-child {
-  border-top-left-radius: 11px;
-}
-
-.result-table tr:first-child td:last-child {
-  border-top-right-radius: 11px;
-}
-
-.result-table tr:last-child th:first-child {
-  border-bottom-left-radius: 11px;
-}
-
-.result-table tr:last-child td:last-child {
-  border-bottom-right-radius: 11px;
-}
-
 .result-table th {
-  width: 180px;
+  width: 140px;
   font-weight: 600;
   color: var(--text-h);
   background: var(--social-bg);
+}
 
-  @media (max-width: 640px) {
-    width: 140px;
+.row-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-h);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--accent);
+    text-decoration: underline;
   }
 }
 
-.error-box {
-  border: 1px solid #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--text-h);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin: 0 0 48px;
-}
-
-.result-table th label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.row-clickable {
   cursor: pointer;
 }
 
-.edit-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  color: var(--text);
-  opacity: 0.7;
+.row-clickable:hover th,
+.row-clickable:hover td {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
-.tip {
-  position: relative;
-  display: inline-flex;
-}
-
-.tip-trigger {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--text);
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 0;
-  cursor: help;
-  opacity: 0.7;
-
-  &:hover,
-  &:focus-visible {
-    opacity: 1;
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.tip-bubble {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: 220px;
-  white-space: normal;
-  background: var(--text-h);
-  color: var(--bg);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.4;
-  padding: 8px 12px;
-  border-radius: 8px;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.tip-trigger:hover + .tip-bubble,
-.tip-trigger:focus-visible + .tip-bubble {
-  opacity: 1;
-  visibility: visible;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-  border: 0;
+.cell-clickable {
+  cursor: pointer;
 }
 
 .cell-edit {
@@ -275,12 +304,6 @@
   }
 }
 
-.draft-hint {
-  font-size: 14px;
-  color: var(--text);
-  margin: -32px 0 48px;
-}
-
 .badge {
   display: inline-block;
   font-weight: 600;
@@ -312,9 +335,16 @@
 .field-guide {
   border-top: 1px solid var(--border);
   padding-top: 32px;
+  margin-top: 48px;
 }
 
 .field-guide h2 {
+  margin: 0 0 8px;
+}
+
+.field-guide-hint {
+  font-size: 14px;
+  color: var(--text);
   margin: 0 0 20px;
 }
 
@@ -329,6 +359,10 @@
   display: grid;
   grid-template-columns: 160px 1fr;
   gap: 8px 20px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  scroll-margin-top: 24px;
+  transition: background-color 0.3s ease;
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
@@ -343,4 +377,18 @@
 .field-guide dd {
   margin: 0;
   font-size: 15px;
+}
+
+/* Brief highlight when a canvas box scrolls the user to this entry. */
+.field-guide dl > div.field-flash {
+  animation: field-flash 1.6s ease-out;
+}
+
+@keyframes field-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
