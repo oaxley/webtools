@@ -1,22 +1,21 @@
-
+/**
+ * Worker entry point.
+ *
+ * Keeps the top-level file deliberately small: it only wires the
+ * versioned API prefix (`/api/v1`) to per-tool sub-routers. Each
+ * sub-router lives in `routes/<tool>.ts` next door, mirroring the
+ * split in `@webtools/core`.
+ */
 import { Hono } from "hono";
-import { calculateCIDR, isRoutable } from "@webtools/core";
+import ip from "./routes/ip";
+import jwt from "./routes/jwt";
 
 const app = new Hono();
 
-app.get("/api/v1/ip", (c) => {
-  const cidr = c.req.query("cidr");
-
-  if (!cidr) {
-    return c.json({ error: "Missing cidr parameter" }, 400);
-  }
-
-  try {
-    return c.json({ ...calculateCIDR(cidr), routable: isRoutable(cidr) });
-  } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : "Invalid IPv4 CIDR" }, 400);
-  }
-});
+// `/api/v1/...` namespace. Bumping the version is a matter of
+// `app.route("/api/v2/ip", ipV2)` here — the sub-routers themselves
+// stay version-agnostic.
+app.route("/api/v1/ip", ip);
+app.route("/api/v1/jwt", jwt);
 
 export default app;
-
