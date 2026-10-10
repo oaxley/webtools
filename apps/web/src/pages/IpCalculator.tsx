@@ -448,9 +448,24 @@ function IpCalculator() {
     const prefixCenter = { x: prefixCenterX, y: SUBNET_CENTER_Y }
 
     const childY = 320
-    const childWidth = Math.min(170, (width - 40) / 4)
-    const childGap = Math.max(10, (width - childWidth * 4 - 40) / 3)
-    const firstChildCx = 20 + childWidth / 2
+    // Four child boxes laid out in a row. We reserve a side margin on
+    // both edges and a minimum inter-box gap, then size each box to
+    // fit — crucially subtracting the gap budget from the available
+    // width BEFORE dividing, otherwise the last box overflows the
+    // canvas on narrower viewports (its right edge used to land at
+    // `width + 10`, which is why the two right-hand boxes looked
+    // clipped). Any slack beyond the box cap is redistributed as
+    // extra gap so the row stays visually centred.
+    const sideMargin = 20
+    const minGap = 10
+    const availableWidth = width - 2 * sideMargin
+    const childWidth = Math.min(
+      170,
+      Math.floor((availableWidth - 3 * minGap) / 4),
+    )
+    const slack = Math.max(0, availableWidth - (4 * childWidth + 3 * minGap))
+    const childGap = minGap + slack / 3
+    const firstChildCx = sideMargin + childWidth / 2
     const childCenters = Array.from({ length: 4 }, (_, i) => ({
       x: firstChildCx + i * (childWidth + childGap),
       y: childY,
