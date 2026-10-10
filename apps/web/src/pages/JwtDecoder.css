@@ -1,0 +1,522 @@
+.tool-page {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 24px;
+  box-sizing: border-box;
+
+  @media (max-width: 640px) {
+    padding: 40px 16px;
+  }
+}
+
+.tool-page-wide {
+  max-width: 1080px;
+}
+
+.tool-page h1 {
+  margin: 0 0 8px;
+}
+
+.tool-lede {
+  margin: 0 0 28px;
+}
+
+.jwt-form {
+  margin: 0 0 12px;
+}
+
+.jwt-input {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  outline: none;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 100px;
+  word-break: break-all;
+
+  &:focus {
+    border-color: var(--accent-border);
+  }
+}
+
+.examples {
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+
+.example-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.error-box {
+  border: 1px solid #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--text-h);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 20px;
+}
+
+/* ---- Two-column layout ------------------------------------------------- */
+
+.jwt-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 48px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+.column-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.claims-column,
+.decoded-column {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* ---- Known-claims list -------------------------------------------------- */
+
+.claim-group-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  margin: 16px 0 6px;
+
+  &:first-of-type {
+    margin-top: 0;
+  }
+}
+
+.claim-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.claim-row {
+  display: grid;
+  grid-template-columns: 14px auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-h);
+
+  &:hover {
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+}
+
+.claim-row-missing {
+  color: var(--text);
+}
+
+.claim-row-missing .claim-key {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+/* Both halves of a claim row behave like inline buttons — invisible by
+   default, with a soft underline on hover so users can tell them apart
+   from the surrounding row. */
+.claim-key-button,
+.claim-name-button {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  border-radius: 4px;
+
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}
+
+.claim-name-button {
+  justify-self: start;
+}
+
+.claim-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.claim-dot-present {
+  background: #16a34a;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #16a34a 20%, transparent);
+}
+
+.claim-dot-missing {
+  background: #dc2626;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #dc2626 20%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .claim-dot-present {
+    background: #4ade80;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #4ade80 20%, transparent);
+  }
+
+  .claim-dot-missing {
+    background: #f87171;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #f87171 20%, transparent);
+  }
+}
+
+.claim-key {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.claim-name {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.claim-row-custom .claim-name {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* ---- Decoded JSON ------------------------------------------------------- */
+
+.decoded-block {
+  margin: 0 0 20px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.decoded-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.decoded-json {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  background: var(--social-bg);
+  color: var(--text-h);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.json-line {
+  display: inline;
+  border-radius: 4px;
+  padding: 1px 2px;
+  margin: -1px -2px;
+  transition: background-color 0.2s ease;
+}
+
+.json-key {
+  color: var(--accent);
+}
+
+.json-string {
+  color: #047857;
+}
+
+.json-number {
+  color: #0369a1;
+}
+
+.json-bool,
+.json-null {
+  color: #a21caf;
+}
+
+.json-comment {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+@media (prefers-color-scheme: dark) {
+  .json-string {
+    color: #6ee7b7;
+  }
+
+  .json-number {
+    color: #7dd3fc;
+  }
+
+  .json-bool,
+  .json-null {
+    color: #f0abfc;
+  }
+}
+
+.claim-flash {
+  animation: claim-flash 1.4s ease-out;
+}
+
+@keyframes claim-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* ---- Signature + notes -------------------------------------------------- */
+
+.signature-value {
+  display: block;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-h);
+  background: var(--social-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  word-break: break-all;
+}
+
+.signature-note {
+  font-size: 13px;
+  color: var(--text);
+  margin: 8px 0 0;
+}
+
+.empty-note {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ---- Badges ------------------------------------------------------------- */
+
+.alg-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--text-h);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.alg-badge-danger {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  .alg-badge-danger {
+    color: #fca5a5;
+  }
+}
+
+.exp-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: baseline;
+}
+
+.exp-badge-active {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.18);
+}
+
+.exp-badge-expired {
+  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .exp-badge-active {
+    color: #4ade80;
+  }
+
+  .exp-badge-expired {
+    color: #fca5a5;
+  }
+}
+
+/* ---- Field guide -------------------------------------------------------- */
+
+.field-guide {
+  border-top: 1px solid var(--border);
+  padding-top: 32px;
+  margin-top: 48px;
+}
+
+.field-guide h2 {
+  margin: 0 0 8px;
+}
+
+.field-guide-hint {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.field-guide dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-group-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  margin: 32px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.field-guide dl > div {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 8px 20px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  scroll-margin-top: 24px;
+  transition: background-color 0.3s ease;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-guide dt {
+  font-weight: 600;
+  color: var(--text-h);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.field-title {
+  overflow-wrap: anywhere;
+}
+
+.field-guide dt code {
+  margin-right: 2px;
+}
+
+.field-rfc {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.field-rfc-link {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+.field-rfc-arrow {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.field-guide dd {
+  margin: 0;
+  font-size: 15px;
+}
+
+.field-guide dl > div.field-flash {
+  animation: field-flash 1.6s ease-out;
+}
+
+@keyframes field-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}

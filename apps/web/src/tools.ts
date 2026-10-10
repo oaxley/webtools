@@ -38,6 +38,16 @@ export const TOOLS: Tool[] = [
     available: true,
   },
   {
+    id: 'jwt',
+    name: 'JWT Decoder',
+    description: 'Decode and inspect a JSON Web Token entirely in your browser.',
+    tags: ['jwt', 'token', 'decode', 'jwt.io', 'oauth', 'oidc'],
+    path: '/jwt',
+    monogram: 'JWT',
+    accent: '#7c3aed',
+    available: true,
+  },
+  {
     id: 'dns',
     name: 'DNS Lookup',
     description: 'Query A, AAAA, MX, TXT and other records for any domain.',
