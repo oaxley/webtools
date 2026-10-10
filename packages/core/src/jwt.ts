@@ -107,7 +107,9 @@ function base64UrlDecode(input: string): string {
     for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
     }
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(
+        bytes,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -303,4 +305,211 @@ export function customPayloadClaims(decoded: JwtDecoded): string[] {
         KNOWN_CLAIMS.filter((c) => c.location === "payload").map((c) => c.key),
     );
     return Object.keys(decoded.payload.json).filter((k) => !known.has(k));
+}
+
+// ---------------------------------------------------------------------------
+// Date / expiry helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * JWT timestamp claims that carry seconds-since-epoch (RFC 7519 §2).
+ * Kept here so API responses, UI code, and tests all agree on the set.
+ */
+export const TIME_CLAIMS = ["exp", "nbf", "iat", "auth_time"] as const;
+export type TimeClaim = (typeof TIME_CLAIMS)[number];
+
+/**
+ * Format a Unix timestamp (seconds) as a human-readable UTC string, e.g.
+ * `"Sunday, 14 January 2024, 08:17:02 UTC"`.
+ *
+ * Uses `en-GB` + explicit `UTC` so output is stable across runtimes and
+ * doesn't depend on the server's locale or TZ.
+ */
+export function formatUtcDateTime(unixSeconds: number): string {
+    const d = new Date(unixSeconds * 1000);
+    return new Intl.DateTimeFormat("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+        timeZoneName: "short",
+    }).format(d);
+}
+
+/**
+ * Phrase a signed second-delta as a plain-English duration, rounded to
+ * the largest sensible unit. Positive deltas get no suffix, negative
+ * deltas are tagged "ago".
+ *
+ *   relativeDuration(3600)   // "1 hour"
+ *   relativeDuration(-7200)  // "2 hours ago"
+ */
+export function relativeDuration(deltaSeconds: number): string {
+    const s = Math.abs(deltaSeconds);
+    const units: Array<[string, number]> = [
+        ["year", 60 * 60 * 24 * 365],
+        ["month", 60 * 60 * 24 * 30],
+        ["day", 60 * 60 * 24],
+        ["hour", 60 * 60],
+        ["minute", 60],
+        ["second", 1],
+    ];
+    for (const [name, secs] of units) {
+        if (s >= secs) {
+            const n = Math.floor(s / secs);
+            const suffix = n === 1 ? "" : "s";
+            const direction = deltaSeconds < 0 ? " ago" : "";
+            return `${n} ${name}${suffix}${direction}`;
+        }
+    }
+    return deltaSeconds < 0 ? "just now" : "in a moment";
+}
+
+/**
+ * Break a non-negative second count into every non-zero unit from
+ * years down to seconds, joined with commas and an Oxford-style "and".
+ *
+ *   verboseDuration(2 * 86400 + 3 * 3600 + 4 * 60 + 34)
+ *     // "2 days, 3 hours, 4 minutes and 34 seconds"
+ *
+ * Used for the forward-looking "will expire in …" message where we
+ * want the exact remaining time at a glance.
+ */
+export function verboseDuration(seconds: number): string {
+    const s = Math.max(0, Math.floor(seconds));
+    if (s === 0) return "a moment";
+
+    const units: Array<[string, number]> = [
+        ["year", 60 * 60 * 24 * 365],
+        ["month", 60 * 60 * 24 * 30],
+        ["day", 60 * 60 * 24],
+        ["hour", 60 * 60],
+        ["minute", 60],
+        ["second", 1],
+    ];
+
+    const parts: string[] = [];
+    let remaining = s;
+    for (const [name, size] of units) {
+        const n = Math.floor(remaining / size);
+        if (n > 0) {
+            parts.push(`${n} ${name}${n === 1 ? "" : "s"}`);
+            remaining -= n * size;
+        }
+    }
+
+    if (parts.length === 1) return parts[0];
+    const last = parts.pop()!;
+    return `${parts.join(", ")} and ${last}`;
+}
+
+/**
+ * Build the `*-text` sibling for every known time claim present in the
+ * payload. Non-numeric values are skipped silently — the caller already
+ * sees the raw value next to the generated text, so there's no reason
+ * to synthesize a text field we can't make sense of.
+ */
+export function timeClaimTexts(
+    payload: Record<string, unknown>,
+): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const key of TIME_CLAIMS) {
+        const value = payload[key];
+        if (typeof value === "number" && Number.isFinite(value)) {
+            out[`${key}-text`] = formatUtcDateTime(value);
+        }
+    }
+    return out;
+}
+
+export type ExpiryState = "valid" | "expired" | "not_yet_valid" | "no_expiry";
+
+export interface ExpiryStatus {
+    state: ExpiryState;
+    /** Short, user-friendly summary suitable for the API `message` field. */
+    message: string;
+    /** `exp` as a Unix timestamp if present and numeric; otherwise null. */
+    exp: number | null;
+    /** `nbf` as a Unix timestamp if present and numeric; otherwise null. */
+    nbf: number | null;
+    /**
+     * Seconds remaining until `exp` relative to `now`. Negative when the
+     * token is already expired; null when there is no `exp`.
+     */
+    secondsUntilExpiry: number | null;
+}
+
+/**
+ * Classify the token's validity window and build a one-liner that
+ * states (in English) whether it's expired, not yet valid, or how
+ * much time is left.
+ *
+ * `now` defaults to the current wall clock but can be injected for
+ * deterministic tests.
+ */
+export function describeExpiry(
+    payload: Record<string, unknown>,
+    now: Date = new Date(),
+): ExpiryStatus {
+    const nowSec = Math.floor(now.getTime() / 1000);
+    const expRaw = payload.exp;
+    const nbfRaw = payload.nbf;
+    const exp = typeof expRaw === "number" && Number.isFinite(expRaw)
+        ? expRaw
+        : null;
+    const nbf = typeof nbfRaw === "number" && Number.isFinite(nbfRaw)
+        ? nbfRaw
+        : null;
+
+    // "Not yet valid" wins over expiry wording: if the nbf is in the
+    // future, it doesn't matter whether exp has passed — the token
+    // was never usable in the first place.
+    //
+    // We no longer append the absolute UTC date in parentheses: callers
+    // already get it as `analysis.<claim>` next to this message.
+    if (nbf !== null && nbf > nowSec) {
+        return {
+            state: "not_yet_valid",
+            message:
+                `Token is not yet valid; becomes valid in ${verboseDuration(nbf - nowSec)}.`,
+            exp,
+            nbf,
+            secondsUntilExpiry: exp === null ? null : exp - nowSec,
+        };
+    }
+
+    if (exp === null) {
+        return {
+            state: "no_expiry",
+            message:
+                "Token has no 'exp' claim; this decoder cannot determine expiration.",
+            exp: null,
+            nbf,
+            secondsUntilExpiry: null,
+        };
+    }
+
+    const delta = exp - nowSec;
+    if (delta <= 0) {
+        return {
+            state: "expired",
+            message: `Token expired ${relativeDuration(delta)}.`,
+            exp,
+            nbf,
+            secondsUntilExpiry: delta,
+        };
+    }
+
+    return {
+        state: "valid",
+        message: `Token will expire in ${verboseDuration(delta)}.`,
+        exp,
+        nbf,
+        secondsUntilExpiry: delta,
+    };
 }

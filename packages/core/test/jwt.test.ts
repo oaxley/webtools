@@ -10,8 +10,13 @@ import assert from "node:assert/strict";
 import {
     customPayloadClaims,
     decodeJWT,
+    describeExpiry,
+    formatUtcDateTime,
     hasClaim,
     KNOWN_CLAIMS,
+    relativeDuration,
+    timeClaimTexts,
+    verboseDuration,
 } from "../src/jwt.ts";
 
 /** Build a JWT from JSON header / payload with a fake signature. */
@@ -180,5 +185,143 @@ describe("customPayloadClaims", () => {
         const token = mkToken({ alg: "HS256" }, { iss: "x", sub: "y", iat: 1 });
         const decoded = decodeJWT(token);
         assert.deepEqual(customPayloadClaims(decoded), []);
+    });
+});
+
+// Reference moment for all expiry/time tests: 2024-06-15 12:00:00 UTC.
+const NOW = new Date("2024-06-15T12:00:00Z");
+const NOW_SEC = Math.floor(NOW.getTime() / 1000);
+
+describe("formatUtcDateTime", () => {
+    it("renders a Unix timestamp in UTC with weekday and seconds", () => {
+        // 2024-01-14 08:17:02 UTC
+        const text = formatUtcDateTime(1705220222);
+        // We don't lock down the exact punctuation across ICU versions,
+        // but the salient parts must all appear.
+        assert.match(text, /Sunday/);
+        assert.match(text, /14 January 2024/);
+        assert.match(text, /08:17:02/);
+        assert.match(text, /UTC/);
+    });
+});
+
+describe("relativeDuration", () => {
+    it("rounds to the largest unit for positive deltas", () => {
+        assert.equal(relativeDuration(1), "1 second");
+        assert.equal(relativeDuration(60), "1 minute");
+        assert.equal(relativeDuration(90), "1 minute");
+        assert.equal(relativeDuration(3600), "1 hour");
+        assert.equal(relativeDuration(60 * 60 * 24 * 3), "3 days");
+    });
+
+    it("appends 'ago' for negative deltas", () => {
+        assert.equal(relativeDuration(-1), "1 second ago");
+        assert.equal(relativeDuration(-60 * 60 * 2), "2 hours ago");
+        assert.equal(
+            relativeDuration(-60 * 60 * 24 * 365 * 2),
+            "2 years ago",
+        );
+    });
+});
+
+describe("verboseDuration", () => {
+    it("joins every non-zero unit with commas and an 'and'", () => {
+        const total = 2 * 86400 + 3 * 3600 + 4 * 60 + 34;
+        assert.equal(
+            verboseDuration(total),
+            "2 days, 3 hours, 4 minutes and 34 seconds",
+        );
+    });
+
+    it("skips zero units", () => {
+        assert.equal(verboseDuration(3600 + 1), "1 hour and 1 second");
+        assert.equal(verboseDuration(3600), "1 hour");
+    });
+
+    it("handles the sub-second edge case", () => {
+        assert.equal(verboseDuration(0), "a moment");
+        assert.equal(verboseDuration(-5), "a moment");
+    });
+});
+
+describe("timeClaimTexts", () => {
+    it("adds `<claim>-text` siblings for every known time claim", () => {
+        const texts = timeClaimTexts({
+            iat: 1705220222,
+            exp: 1705220222 + 3600,
+            nbf: 1705220222 - 60,
+            auth_time: 1705220000,
+            sub: "ignored",
+        });
+        assert.deepEqual(Object.keys(texts).sort(), [
+            "auth_time-text",
+            "exp-text",
+            "iat-text",
+            "nbf-text",
+        ]);
+        assert.match(texts["iat-text"], /14 January 2024/);
+    });
+
+    it("skips non-numeric values silently", () => {
+        const texts = timeClaimTexts({ iat: "not a number", exp: null });
+        assert.deepEqual(texts, {});
+    });
+});
+
+describe("describeExpiry", () => {
+    it("flags a token as valid when exp is in the future", () => {
+        const status = describeExpiry(
+            { exp: NOW_SEC + 3600, iat: NOW_SEC - 60 },
+            NOW,
+        );
+        assert.equal(status.state, "valid");
+        assert.equal(status.secondsUntilExpiry, 3600);
+        assert.equal(status.message, "Token will expire in 1 hour.");
+    });
+
+    it("uses a verbose multi-unit message for complex durations", () => {
+        const delta = 2 * 86400 + 3 * 3600 + 4 * 60 + 34;
+        const status = describeExpiry({ exp: NOW_SEC + delta }, NOW);
+        assert.equal(status.state, "valid");
+        assert.equal(
+            status.message,
+            "Token will expire in 2 days, 3 hours, 4 minutes and 34 seconds.",
+        );
+    });
+
+    it("flags a token as expired when exp is in the past", () => {
+        const status = describeExpiry({ exp: NOW_SEC - 7200 }, NOW);
+        assert.equal(status.state, "expired");
+        assert.equal(status.secondsUntilExpiry, -7200);
+        assert.equal(status.message, "Token expired 2 hours ago.");
+    });
+
+    it("flags a token as not_yet_valid when nbf is in the future", () => {
+        const status = describeExpiry(
+            { nbf: NOW_SEC + 600, exp: NOW_SEC + 7200 },
+            NOW,
+        );
+        assert.equal(status.state, "not_yet_valid");
+        assert.equal(status.secondsUntilExpiry, 7200);
+        assert.equal(
+            status.message,
+            "Token is not yet valid; becomes valid in 10 minutes.",
+        );
+    });
+
+    it("reports no_expiry when exp is absent", () => {
+        const status = describeExpiry({ iat: NOW_SEC - 60 }, NOW);
+        assert.equal(status.state, "no_expiry");
+        assert.equal(status.exp, null);
+        assert.equal(status.secondsUntilExpiry, null);
+        assert.match(status.message, /no 'exp' claim/);
+    });
+
+    it("ignores non-numeric exp/nbf values", () => {
+        const status = describeExpiry(
+            { exp: "not a number", nbf: null },
+            NOW,
+        );
+        assert.equal(status.state, "no_expiry");
     });
 });
