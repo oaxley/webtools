@@ -1,0 +1,56 @@
+/* Shared "Copy JSON" button used by the IP calculator and the JWT
+   decoder. Positioning is left to the parent — this file only styles
+   the button chrome itself. */
+.copy-json-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--accent-border);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  & svg {
+    display: block;
+  }
+}
+
+/* Compact variant: tucks into a heading row without visually dominating it. */
+.copy-json-button--sm {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  gap: 5px;
+
+  & svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.copy-json-label {
+  line-height: 1;
+}
