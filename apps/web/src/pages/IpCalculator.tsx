@@ -712,7 +712,7 @@ function IpCalculator() {
       <p className="tool-lede">
         {isMobile
           ? 'Enter an IPv4 network in CIDR notation. Tap any field to jump to its explanation.'
-          : 'Enter an IPv4 network in CIDR notation to see its structure as a diagram. The subnet and prefix are editable right inside the diagram.'}
+          : 'Enter an IPv4 network in CIDR notation to see its structure as a diagram.'}
       </p>
 
       <form
