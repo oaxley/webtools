@@ -40,7 +40,7 @@ export const TOOLS: Tool[] = [
   {
     id: 'jwt',
     name: 'JWT Decoder',
-    description: 'Decode and inspect a JSON Web Token entirely in your browser.',
+    description: 'Decode and inspect a JSON Web Token.',
     tags: ['jwt', 'token', 'decode', 'jwt.io', 'oauth', 'oidc'],
     path: '/jwt',
     monogram: 'JWT',
@@ -61,7 +61,7 @@ export const TOOLS: Tool[] = [
     id: 'ssl',
     name: 'X.509 Certificate Decoder',
     description:
-      'Decode and inspect PEM or DER-encoded X.509 certificates in your browser.',
+      'Decode and inspect PEM or DER-encoded X.509 certificates.',
     tags: [
       'x509',
       'ssl',
