@@ -6,6 +6,7 @@ import App from './App.tsx'
 import Home from './pages/Home.tsx'
 import IpCalculator from './pages/IpCalculator.tsx'
 import JwtDecoder from './pages/JwtDecoder.tsx'
+import X509Decoder from './pages/X509Decoder.tsx'
 import NotFound from './pages/NotFound.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<Home />} />
           <Route path="ip" element={<IpCalculator />} />
           <Route path="jwt" element={<JwtDecoder />} />
+          <Route path="ssl" element={<X509Decoder />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

@@ -59,13 +59,23 @@ export const TOOLS: Tool[] = [
   },
   {
     id: 'ssl',
-    name: 'SSL Checker',
-    description: 'Inspect certificate chains, expiry dates and issuers.',
-    tags: ['ssl', 'tls', 'certificate', 'https', 'expiry'],
+    name: 'X.509 Certificate Decoder',
+    description:
+      'Decode and inspect PEM or DER-encoded X.509 certificates in your browser.',
+    tags: [
+      'x509',
+      'ssl',
+      'tls',
+      'certificate',
+      'pem',
+      'der',
+      'pki',
+      'https',
+    ],
     path: '/ssl',
     monogram: 'SSL',
     accent: '#059669',
-    available: false,
+    available: true,
   },
   {
     id: 'json',
