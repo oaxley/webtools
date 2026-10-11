@@ -24,3 +24,20 @@ export type {
     JwtPart,
     TimeClaim,
 } from "./jwt";
+
+export {
+    computeFingerprints,
+    customX509Extensions,
+    decodeX509,
+    hasX509Field,
+    KNOWN_X509_FIELDS,
+} from "./x509";
+export type {
+    X509Decoded,
+    X509Extension,
+    X509ExtensionValue,
+    X509FieldLocation,
+    X509FieldSpec,
+    X509Name,
+    X509PublicKey,
+} from "./x509";
