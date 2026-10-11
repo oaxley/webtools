@@ -7,6 +7,9 @@ import {
   type JwtClaimSpec,
   type JwtDecoded,
 } from '@webtools/core'
+import CopyJsonButton from '../components/CopyJsonButton'
+import { DecodedBlock, DefinitionLink, RfcLink } from './decoderShared'
+import { flashInJson, jumpToFieldGuide } from './decoderUtils'
 import './JwtDecoder.css'
 
 // Public jwt.io sample token. Used as the default so the page shows
@@ -67,24 +70,7 @@ function JwtDecoder() {
     }
   }, [input])
 
-  const jumpToField = (anchor: string) => {
-    const target = document.getElementById(anchor)
-    if (!target) return
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    target.classList.remove('field-flash')
-    // Force reflow so re-adding the class restarts the animation.
-    void target.offsetWidth
-    target.classList.add('field-flash')
-  }
-
-  const flashClaimInJson = (key: string) => {
-    const el = document.querySelector<HTMLElement>(`[data-claim="${key}"]`)
-    if (!el) return
-    el.classList.remove('claim-flash')
-    void el.offsetWidth
-    el.classList.add('claim-flash')
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
+  const flashClaimInJson = (key: string) => flashInJson(key, 'data-claim')
 
   const handleClaimKeyClick = (spec: JwtClaimSpec, present: boolean) => {
     if (present) {
@@ -92,12 +78,12 @@ function JwtDecoder() {
     } else {
       // Missing claim can't be highlighted — fall back to the explanation
       // so the click is never a no-op.
-      jumpToField(`claim-${spec.key}`)
+      jumpToFieldGuide(`claim-${spec.key}`)
     }
   }
 
   const handleClaimNameClick = (spec: JwtClaimSpec) => {
-    jumpToField(`claim-${spec.key}`)
+    jumpToFieldGuide(`claim-${spec.key}`)
   }
 
   const payloadKnown = KNOWN_CLAIMS.filter((c) => c.location === 'payload')
@@ -108,20 +94,17 @@ function JwtDecoder() {
     <main className="tool-page tool-page-wide">
       <h1>JWT Decoder</h1>
       <p className="tool-lede">
-        Paste a JWT to inspect its header, payload and signature. Decoding
-        runs entirely in your browser — nothing is sent anywhere, nothing
-        is stored, and the token is never written to the URL. Signatures
-        are not verified.
+        Paste a JWT to inspect its header, payload and signature. 
       </p>
 
       <form
-        className="jwt-form"
+        className="decoder-form"
         onSubmit={(e) => {
           e.preventDefault()
         }}
       >
         <textarea
-          className="jwt-input"
+          className="decoder-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
@@ -165,7 +148,7 @@ function JwtDecoder() {
         </p>
       )}
 
-      <div className="jwt-grid">
+      <div className="decoder-grid">
         <aside className="claims-column" aria-label="Known claims">
           <h2 className="column-title">Known claims</h2>
 
@@ -193,28 +176,23 @@ function JwtDecoder() {
                   <li
                     key={key}
                     className="claim-row claim-row-present claim-row-custom"
+                    title="Custom claim — not part of any standard"
                   >
                     <span
                       className="claim-dot claim-dot-present"
                       aria-hidden="true"
                     />
-                    {/* Custom claims have no spec, so both halves do the
-                        same thing: flash the value in the decoded JSON. */}
+                    {/* Custom claims have no spec, so there's nothing to
+                        link to in the field guide — the row just flashes
+                        the value in the decoded JSON. */}
                     <button
                       type="button"
                       className="claim-key-button"
                       onClick={() => flashClaimInJson(key)}
                       aria-label={`Highlight ${key} in the decoded token`}
+                      title="Highlight in decoded token"
                     >
                       <span className="claim-key">{key}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="claim-name-button"
-                      onClick={() => flashClaimInJson(key)}
-                      aria-label={`Highlight ${key} in the decoded token`}
-                    >
-                      <span className="claim-name">custom</span>
                     </button>
                   </li>
                 ))}
@@ -232,10 +210,19 @@ function JwtDecoder() {
                 title="Header"
                 part={outcome.decoded.header.json}
                 extra={<AlgBadge alg={outcome.decoded.header.json.alg} />}
+                annotateKey={annotateClaim}
               />
               <DecodedBlock
                 title="Payload"
                 part={outcome.decoded.payload.json}
+                annotateKey={annotateClaim}
+                action={
+                  <CopyJsonButton
+                    size="sm"
+                    data={outcome.decoded.payload.json}
+                    ariaLabel="Copy payload as JSON"
+                  />
+                }
               />
               <section className="decoded-block">
                 <h3 className="decoded-title">Signature</h3>
@@ -373,18 +360,14 @@ function ClaimList({
                     ? `Highlight ${spec.key} in the decoded token`
                     : `Explain ${spec.key} (${spec.name})`
                 }
+                title={spec.name}
               >
                 <span className="claim-key">{spec.key}</span>
               </button>
-              {/* Clicking the name jumps to the explanation below. */}
-              <button
-                type="button"
-                className="claim-name-button"
+              <DefinitionLink
                 onClick={() => onNameClick(spec)}
-                aria-label={`Explain ${spec.name}`}
-              >
-                <span className="claim-name">{spec.name}</span>
-              </button>
+                label={`Jump to the definition of ${spec.name}`}
+              />
             </li>
           )
         })}
@@ -393,123 +376,24 @@ function ClaimList({
   )
 }
 
-interface DecodedBlockProps {
-  title: string
-  part: Record<string, unknown>
-  extra?: React.ReactNode
-}
-
-function DecodedBlock({ title, part, extra }: DecodedBlockProps) {
-  return (
-    <section className="decoded-block">
-      <h3 className="decoded-title">
-        {title}
-        {extra}
-      </h3>
-      <pre className="decoded-json">
-        <JsonObject obj={part} />
-      </pre>
-    </section>
-  )
-}
-
 // ---------------------------------------------------------------------------
-// JSON renderer with per-key annotations
+// Per-claim annotation (date comments + expiry badge)
 // ---------------------------------------------------------------------------
 
-function JsonObject({ obj, indent = 2 }: { obj: Record<string, unknown>; indent?: number }) {
-  const keys = Object.keys(obj)
-  if (keys.length === 0) return <>{'{}'}</>
-  const pad = ' '.repeat(indent)
-  return (
-    <>
-      {'{\n'}
-      {keys.map((key, i) => (
-        <span key={key} data-claim={key} className="json-line">
-          {pad}
-          <span className="json-key">"{key}"</span>
-          {': '}
-          <JsonValue value={obj[key]} claimKey={key} indent={indent + 2} />
-          {i < keys.length - 1 ? ',' : ''}
-          <ClaimAnnotation claimKey={key} value={obj[key]} />
-          {'\n'}
-        </span>
-      ))}
-      {' '.repeat(Math.max(0, indent - 2))}
-      {'}'}
-    </>
-  )
-}
-
-function JsonValue({
-  value,
-  claimKey,
-  indent,
-}: {
-  value: unknown
-  claimKey: string
-  indent: number
-}) {
-  if (value === null) return <span className="json-null">null</span>
-  if (typeof value === 'boolean') {
-    return <span className="json-bool">{String(value)}</span>
-  }
-  if (typeof value === 'number') {
-    return <span className="json-number">{value}</span>
-  }
-  if (typeof value === 'string') {
-    return <span className="json-string">"{value}"</span>
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <>{'[]'}</>
-    const pad = ' '.repeat(indent)
-    return (
-      <>
-        {'[\n'}
-        {value.map((item, i) => (
-          <span key={i}>
-            {pad}
-            <JsonValue value={item} claimKey={claimKey} indent={indent + 2} />
-            {i < value.length - 1 ? ',' : ''}
-            {'\n'}
-          </span>
-        ))}
-        {' '.repeat(Math.max(0, indent - 2))}
-        {']'}
-      </>
-    )
-  }
-  if (typeof value === 'object') {
-    return (
-      <JsonObject
-        obj={value as Record<string, unknown>}
-        indent={indent}
-      />
-    )
-  }
-  return <span>{String(value)}</span>
-}
-
-// ---------------------------------------------------------------------------
-// Date / expiry annotations
-// ---------------------------------------------------------------------------
-
-function ClaimAnnotation({
-  claimKey,
-  value,
-}: {
-  claimKey: string
-  value: unknown
-}) {
+/**
+ * Annotate numeric JWT time claims (`exp`, `iat`, `nbf`) with a human
+ * readable UTC date and, for `exp`, an active/expired badge.
+ * `Date.now()` is read lazily so the annotation stays fresh on re-render.
+ */
+function annotateClaim(key: string, value: unknown): React.ReactNode {
   if (typeof value !== 'number') return null
-  if (claimKey !== 'exp' && claimKey !== 'iat' && claimKey !== 'nbf') return null
+  if (key !== 'exp' && key !== 'iat' && key !== 'nbf') return null
 
   const nowSec = Math.floor(Date.now() / 1000)
-  const date = new Date(value * 1000)
-  const iso = formatDate(date)
+  const iso = formatIsoDate(new Date(value * 1000))
   const delta = value - nowSec
 
-  if (claimKey === 'exp') {
+  if (key === 'exp') {
     const expired = delta <= 0
     const label = expired ? 'expired' : 'active'
     const title = expired
@@ -520,7 +404,9 @@ function ClaimAnnotation({
         {' '}
         <span className="json-comment">// {iso}</span>{' '}
         <span
-          className={`exp-badge ${expired ? 'exp-badge-expired' : 'exp-badge-active'}`}
+          className={`exp-badge ${
+            expired ? 'exp-badge-expired' : 'exp-badge-active'
+          }`}
           title={title}
         >
           {label}
@@ -531,7 +417,7 @@ function ClaimAnnotation({
 
   // iat / nbf: show date + relative time inline.
   const rel =
-    claimKey === 'iat'
+    key === 'iat'
       ? delta <= 0
         ? `issued ${relativeTime(delta)}`
         : `issued ${relativeTime(delta)} from now`
@@ -548,7 +434,7 @@ function ClaimAnnotation({
   )
 }
 
-function formatDate(d: Date): string {
+function formatIsoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
     `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
@@ -581,10 +467,6 @@ function relativeTime(deltaSeconds: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Small badges
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Field-guide entry for a single known claim
 // ---------------------------------------------------------------------------
 
@@ -592,61 +474,14 @@ function ClaimExplanation({ spec }: { spec: JwtClaimSpec }) {
   return (
     <div id={`claim-${spec.key}`}>
       <dt>
-        <span className="field-title">
-          <code>{spec.key}</code> — {spec.name}
-        </span>
+        <code className="field-key">{spec.key}</code>
         {spec.rfc && <RfcLink rfc={spec.rfc} />}
       </dt>
-      <dd>{spec.description}</dd>
+      <dd>
+        <h4 className="field-name">{spec.name}</h4>
+        <p className="field-description">{spec.description}</p>
+      </dd>
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// RFC / OIDC spec links
-// ---------------------------------------------------------------------------
-
-/**
- * Turn a spec reference like `"RFC 7519 §4.1.1"` or `"OIDC Core 1.0 §5.1"`
- * into a canonical URL. Unknown shapes return `null` and we fall back to
- * showing the plain text.
- */
-function rfcUrl(ref: string): string | null {
-  // "RFC NNNN §x.y.z"
-  const rfcMatch = ref.match(/^RFC\s+(\d+)(?:\s+§\s*([\d.]+))?/i)
-  if (rfcMatch) {
-    const [, number, section] = rfcMatch
-    const base = `https://datatracker.ietf.org/doc/html/rfc${number}`
-    return section ? `${base}#section-${section}` : base
-  }
-  // "OIDC Core 1.0 §x[.y]" — OpenID Connect Core spec. The HTML version
-  // uses numeric anchors like "#Section-5.1".
-  const oidcMatch = ref.match(/^OIDC\s+Core\s+1\.0(?:\s+§\s*([\d.]+))?/i)
-  if (oidcMatch) {
-    const [, section] = oidcMatch
-    const base = 'https://openid.net/specs/openid-connect-core-1_0.html'
-    return section ? `${base}#Section-${section}` : base
-  }
-  return null
-}
-
-function RfcLink({ rfc }: { rfc: string }) {
-  const href = rfcUrl(rfc)
-  if (!href) {
-    return <span className="field-rfc">{rfc}</span>
-  }
-  return (
-    <a
-      className="field-rfc field-rfc-link"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {rfc}
-      <span aria-hidden="true" className="field-rfc-arrow">
-        ↗
-      </span>
-    </a>
   )
 }
 
