@@ -157,7 +157,10 @@
 }
 
 .tagline {
+  font-family: var(--heading);
   font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   margin: 0 0 32px;
 }
 
