@@ -1,0 +1,140 @@
+/* X.509-decoder specific styles. Shared decoder styles live in
+   `decoderShared.css` and are imported from that module. */
+
+/* Page shell — same as the JWT/IP pages. Duplicated verbatim so the
+   X.509 page can be navigated to directly without pulling in another
+   stylesheet. */
+.tool-page {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 24px;
+  box-sizing: border-box;
+
+  @media (max-width: 640px) {
+    padding: 40px 16px;
+  }
+}
+
+.tool-page-wide {
+  max-width: 1080px;
+}
+
+.tool-page h1 {
+  margin: 0 0 8px;
+}
+
+.tool-lede {
+  margin: 0 0 28px;
+}
+
+.examples {
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+
+.example-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.error-box {
+  border: 1px solid #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  color: var(--text-h);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 20px;
+}
+
+.signature-value {
+  display: block;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-h);
+  background: var(--social-bg);
+  border-radius: 10px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  word-break: break-all;
+}
+
+.signature-note {
+  font-size: 13px;
+  color: var(--text);
+  margin: 8px 0 0;
+}
+
+/* The textarea needs more room than JWT since certs are typically
+   20+ lines. Reuses the shared `.decoder-input` chrome and only
+   overrides height. */
+.x509-input {
+  min-height: 220px;
+  font-size: 13px;
+}
+
+/* Fingerprints block mimics the signature value's monospace frame. */
+.fingerprint-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--social-bg);
+  color: var(--text-h);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.fingerprint-list > div {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 10px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.fingerprint-list dt {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fingerprint-list dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+/* "required" badge in the field-guide to call out mandatory TBS fields. */
+.mandatory-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  vertical-align: baseline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mandatory-badge {
+    color: #4ade80;
+  }
+}
