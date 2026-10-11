@@ -114,6 +114,16 @@
   display: block;
 }
 
+/* Positions the shared CopyJsonButton at the top-right of the canvas
+   stage. The anchor sits above the canvas so clicks never fall through
+   to the canvas hit-test. */
+.copy-json-anchor {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
 .subnet-overlay-input {
   position: absolute;
   font-family: var(--mono);

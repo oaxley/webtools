@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
+import CopyJsonButton from '../components/CopyJsonButton'
 import './IpCalculator.css'
 
 const DEFAULT_CIDR = '192.168.1.0/24'
@@ -694,6 +695,17 @@ function IpCalculator() {
 
   const handleCanvasLeave = () => setHoverAnchor(null)
 
+  // Pretty-printed JSON payload copied by the canvas corner button. Includes
+  // the CIDR and the routable flag alongside the raw CidrResult so the
+  // pasted blob is self-contained.
+  const copyPayload = outcome.ok
+    ? {
+        cidr: submitted,
+        ...outcome.result,
+        routable: outcome.routable,
+      }
+    : null
+
   return (
     <main className="tool-page">
       <h1>IP Subnet Calculator</h1>
@@ -774,6 +786,17 @@ function IpCalculator() {
               onMouseMove={handleCanvasMove}
               onMouseLeave={handleCanvasLeave}
             />
+
+            {/* Copy-as-JSON button pinned to the top-right of the canvas.
+                Disabled when the current input doesn't parse so we never
+                offer a stale snapshot to copy. */}
+            <div className="copy-json-anchor">
+              <CopyJsonButton
+                data={copyPayload}
+                disabled={!outcome.ok}
+                ariaLabel="Copy subnet information as JSON"
+              />
+            </div>
 
             {/* Editable subnet address, overlayed on the subnet box. */}
             <input
