@@ -17,7 +17,7 @@
 		"wrangler": "^4.148.0"
 	},
 	"dependencies": {
-1		"@cfworker/json-schema": "^4.1.1",
+		"@cfworker/json-schema": "^4.1.1",
 		"@modelcontextprotocol/sdk": "^1.32.1",
 		"@webtools/core": "workspace:*",
 		"hono": "^4.13.13",
