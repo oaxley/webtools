@@ -17,7 +17,7 @@ createRoot(document.getElementById('root')!).render(
           <Route index element={<Home />} />
           <Route path="ip" element={<IpCalculator />} />
           <Route path="jwt" element={<JwtDecoder />} />
-          <Route path="ssl" element={<X509Decoder />} />
+          <Route path="x509" element={<X509Decoder />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

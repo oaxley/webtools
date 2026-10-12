@@ -58,7 +58,7 @@ export const TOOLS: Tool[] = [
     available: false,
   },
   {
-    id: 'ssl',
+    id: 'x509',
     name: 'X.509 Certificate Decoder',
     description:
       'Decode and inspect PEM or DER-encoded X.509 certificates.',
@@ -72,8 +72,8 @@ export const TOOLS: Tool[] = [
       'pki',
       'https',
     ],
-    path: '/ssl',
-    monogram: 'SSL',
+    path: '/x509',
+    monogram: 'X509',
     accent: '#059669',
     available: true,
   },
