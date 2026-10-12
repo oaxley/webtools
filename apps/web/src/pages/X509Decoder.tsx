@@ -3,10 +3,11 @@ import {
   computeFingerprints,
   customX509Extensions,
   decodeX509,
+  describeValidity,
   hasX509Field,
   KNOWN_X509_FIELDS,
+  toX509JsonSummary,
   type X509Decoded,
-  type X509Extension,
   type X509FieldSpec,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
@@ -160,11 +161,18 @@ function X509Decoder() {
     jumpToFieldGuide(`field-${anchorKey(spec.key)}`)
   }
 
-  // Build the JSON views for the Decoded column. Keeping these as plain
-  // objects lets us reuse the shared JsonTree renderer and the CopyJsonButton
-  // without any decoder-specific plumbing.
-  const certJson = outcome.ok ? buildCertJson(outcome.decoded) : null
-  const extensionsJson = outcome.ok ? buildExtensionsJson(outcome.decoded) : null
+  // Build the JSON views for the Decoded column from the shared core
+  // helpers so the UI and the API never drift on key names. We split
+  // the single summary into its two visible blocks (certificate +
+  // extensions); the signature block renders directly from the parsed
+  // cert.
+  const summary = outcome.ok
+    ? toX509JsonSummary(outcome.decoded, fingerprints)
+    : null
+  const certJson = summary ? summary.certificate : null
+  const extensionsJson = summary
+    ? (summary.extensions as Record<string, unknown>)
+    : null
 
   const tbsFields = KNOWN_X509_FIELDS.filter((f) => f.location === 'tbs')
   const extFields = KNOWN_X509_FIELDS.filter((f) => f.location === 'extension')
@@ -293,17 +301,17 @@ function X509Decoder() {
         <section className="decoded-column" aria-label="Decoded certificate">
           <h2 className="column-title">Decoded</h2>
 
-          {outcome.ok && certJson && extensionsJson ? (
+          {outcome.ok && summary && certJson && extensionsJson ? (
             <>
               <DecodedBlock
                 title="Certificate"
-                part={certJson}
+                part={certJson as Record<string, unknown>}
                 flashAttr="data-field"
                 annotateKey={annotateCertField}
                 action={
                   <CopyJsonButton
                     size="sm"
-                    data={buildFullJson(outcome.decoded, fingerprints)}
+                    data={summary as unknown as Record<string, unknown>}
                     ariaLabel="Copy certificate information as JSON"
                   />
                 }
@@ -519,140 +527,14 @@ function anchorKey(key: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// JSON building blocks
-// ---------------------------------------------------------------------------
-
-function buildCertJson(cert: X509Decoded): Record<string, unknown> {
-  return {
-    version: cert.version,
-    serialNumber: cert.serialNumber,
-    signatureAlgorithm: cert.signatureAlgorithm,
-    issuer: nameToJson(cert.issuer),
-    validity: {
-      notBefore: cert.validity.notBefore.toISOString(),
-      notAfter: cert.validity.notAfter.toISOString(),
-    },
-    subject: nameToJson(cert.subject),
-    subjectPublicKey: {
-      algorithm: cert.subjectPublicKey.algorithm,
-      ...(cert.subjectPublicKey.curve && { curve: cert.subjectPublicKey.curve }),
-      ...(cert.subjectPublicKey.sizeBits !== undefined && {
-        sizeBits: cert.subjectPublicKey.sizeBits,
-      }),
-    },
-    // Note: signatureValue intentionally omitted here — it has a dedicated
-    // "Signature" block below the certificate block in the UI, so showing
-    // it twice would just be visual noise.
-  }
-}
-
-function buildExtensionsJson(
-  cert: X509Decoded,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const ext of cert.extensions) {
-    // Keyed by the extension's canonical identifier so the left-column
-    // click-to-flash can find it via `data-field="ext:<oid>"` or the
-    // friendly `ext:<name>` key the catalog uses.
-    const key = extensionKey(ext)
-    out[key] = extensionValueToJson(ext)
-  }
-  return out
-}
-
-function nameToJson(name: { dn: string }): string {
-  return name.dn
-}
-
-function extensionKey(ext: X509Extension): string {
-  // Match the catalog's `ext:<name>` key when we know the extension, so
-  // click-to-flash works. Fall back to `ext:<oid>` for custom extensions.
-  const KNOWN: Record<string, string> = {
-    '2.5.29.19': 'ext:basicConstraints',
-    '2.5.29.15': 'ext:keyUsage',
-    '2.5.29.37': 'ext:extKeyUsage',
-    '2.5.29.17': 'ext:subjectAltName',
-    '2.5.29.14': 'ext:subjectKeyIdentifier',
-    '2.5.29.35': 'ext:authorityKeyIdentifier',
-    '2.5.29.31': 'ext:crlDistributionPoints',
-    '1.3.6.1.5.5.7.1.1': 'ext:authorityInfoAccess',
-    '2.5.29.32': 'ext:certificatePolicies',
-  }
-  return KNOWN[ext.oid] ?? `ext:${ext.oid}`
-}
-
-function extensionValueToJson(ext: X509Extension): Record<string, unknown> {
-  const base: Record<string, unknown> = {
-    oid: ext.oid,
-    critical: ext.critical,
-  }
-  switch (ext.value.kind) {
-    case 'basicConstraints':
-      base.ca = ext.value.ca
-      if (ext.value.pathLenConstraint !== undefined) {
-        base.pathLenConstraint = ext.value.pathLenConstraint
-      }
-      break
-    case 'keyUsage':
-      base.usages = ext.value.usages
-      break
-    case 'extKeyUsage':
-      base.usages = ext.value.usages
-      break
-    case 'subjectAltName':
-      base.names = ext.value.names
-      break
-    case 'subjectKeyIdentifier':
-      base.keyId = ext.value.keyId
-      break
-    case 'authorityKeyIdentifier':
-      if (ext.value.keyId) base.keyId = ext.value.keyId
-      if (ext.value.issuer) base.issuer = ext.value.issuer
-      if (ext.value.serialNumber) base.serialNumber = ext.value.serialNumber
-      break
-    case 'crlDistributionPoints':
-      base.urls = ext.value.urls
-      break
-    case 'authorityInfoAccess':
-      base.entries = ext.value.entries
-      break
-    case 'certificatePolicies':
-      base.policies = ext.value.policies
-      break
-    case 'unknown':
-      base.hex = ext.value.hex
-      break
-  }
-  return base
-}
-
-/**
- * Full JSON blob copied by the "Copy JSON" button. Includes the derived
- * fingerprints once they're ready so the pasted output is self-contained.
- */
-function buildFullJson(
-  cert: X509Decoded,
-  fingerprints: Fingerprints | null,
-): Record<string, unknown> {
-  return {
-    ...buildCertJson(cert),
-    extensions: buildExtensionsJson(cert),
-    // Signature value lives in its own UI block, but we keep it in the
-    // copied JSON so pasted output is still a self-contained snapshot.
-    signatureValue: cert.signature.hex,
-    ...(fingerprints && {
-      fingerprints: {
-        sha256: fingerprints.sha256,
-        sha1: fingerprints.sha1,
-      },
-    }),
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Per-field annotations
 // ---------------------------------------------------------------------------
 
+/**
+ * Render the pending/active/expired badge next to the `validity` block.
+ * Delegates all the English-wording work to `describeValidity` in core
+ * so the UI badge and the API's `analysis.message` stay consistent.
+ */
 const annotateCertField: KeyAnnotator = (key, value) => {
   if (key !== 'validity' || typeof value !== 'object' || value === null) {
     return null
@@ -666,33 +548,24 @@ const annotateCertField: KeyAnnotator = (key, value) => {
   }
   const notBefore = new Date(validity.notBefore)
   const notAfter = new Date(validity.notAfter)
-  const now = Date.now()
-  const state =
-    now < notBefore.getTime()
-      ? 'pending'
-      : now > notAfter.getTime()
-        ? 'expired'
-        : 'active'
+  // We only need a Date pair to classify the window — build a minimal
+  // cert-shaped object rather than pulling the real one through props,
+  // which would just complicate the shared DecodedBlock plumbing.
+  const status = describeValidity({
+    validity: { notBefore, notAfter },
+  } as X509Decoded)
   const label =
-    state === 'pending'
+    status.state === 'pending'
       ? 'not yet valid'
-      : state === 'expired'
+      : status.state === 'expired'
         ? 'expired'
         : 'valid'
-  const title =
-    state === 'pending'
-      ? `Becomes valid ${notBefore.toISOString()}`
-      : state === 'expired'
-        ? `Expired ${notAfter.toISOString()}`
-        : `Valid until ${notAfter.toISOString()}`
   return (
     <>
       {' '}
       <span
-        className={`exp-badge exp-badge-${
-          state === 'pending' ? 'pending' : state === 'expired' ? 'expired' : 'active'
-        }`}
-        title={title}
+        className={`exp-badge exp-badge-${status.state}`}
+        title={status.message}
       >
         {label}
       </span>

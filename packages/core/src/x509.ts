@@ -12,6 +12,11 @@
  * BIT STRING, OCTET STRING, printable/UTF-8/IA5/BMP strings, SEQUENCE,
  * SET, [0] BOOLEAN defaults, …).
  */
+import {
+    formatUtcDateTime,
+    relativeDuration,
+    verboseDuration,
+} from "./jwt.ts";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -595,7 +600,7 @@ function readOid(bytes: Uint8Array): string {
 }
 
 function readUtf8(bytes: Uint8Array): string {
-    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    return new TextDecoder("utf-8").decode(bytes);
 }
 
 function readBmp(bytes: Uint8Array): string {
@@ -1366,4 +1371,244 @@ export async function computeFingerprints(
         sha1: bytesToHexColon(new Uint8Array(sha1Buf)),
         sha256: bytesToHexColon(new Uint8Array(sha256Buf)),
     };
+}
+
+// ---------------------------------------------------------------------------
+// Validity analysis
+// ---------------------------------------------------------------------------
+
+export type X509ValidityState = "pending" | "active" | "expired";
+
+export interface X509ValidityStatus {
+    /** Lifecycle bucket of the certificate relative to `now`. */
+    state: X509ValidityState;
+    /** One-line, user-facing summary (English). */
+    message: string;
+    /** `notBefore` as a human-readable UTC date. */
+    notBeforeText: string;
+    /** `notAfter` as a human-readable UTC date. */
+    notAfterText: string;
+    /**
+     * Seconds remaining until `notAfter` relative to `now`. Negative
+     * when the certificate has already expired.
+     */
+    secondsUntilExpiry: number;
+}
+
+/**
+ * Classify a certificate's validity window relative to `now` and build
+ * a short English summary. Used both by the UI (badge in the validity
+ * row) and the API (`analysis` block). `now` defaults to the wall clock
+ * but can be injected for deterministic tests.
+ */
+export function describeValidity(
+    cert: X509Decoded,
+    now: Date = new Date(),
+): X509ValidityStatus {
+    const nowSec = Math.floor(now.getTime() / 1000);
+    const notBeforeSec = Math.floor(cert.validity.notBefore.getTime() / 1000);
+    const notAfterSec = Math.floor(cert.validity.notAfter.getTime() / 1000);
+    const notBeforeText = formatUtcDateTime(notBeforeSec);
+    const notAfterText = formatUtcDateTime(notAfterSec);
+    const secondsUntilExpiry = notAfterSec - nowSec;
+
+    if (nowSec < notBeforeSec) {
+        return {
+            state: "pending",
+            message:
+                `Certificate is not yet valid; becomes valid in ${
+                    verboseDuration(notBeforeSec - nowSec)
+                }.`,
+            notBeforeText,
+            notAfterText,
+            secondsUntilExpiry,
+        };
+    }
+
+    if (secondsUntilExpiry <= 0) {
+        return {
+            state: "expired",
+            message: `Certificate expired ${
+                relativeDuration(secondsUntilExpiry)
+            }.`,
+            notBeforeText,
+            notAfterText,
+            secondsUntilExpiry,
+        };
+    }
+
+    return {
+        state: "active",
+        message: `Certificate is valid for another ${
+            verboseDuration(secondsUntilExpiry)
+        }.`,
+        notBeforeText,
+        notAfterText,
+        secondsUntilExpiry,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// JSON summary
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical JSON summary of a parsed certificate. Shared by the web UI
+ * (right-column `DecodedBlock`s + Copy JSON button) and the HTTP API
+ * (`POST /api/v1/x509` response body) so both views stay in lock-step.
+ *
+ * Binary blobs (`pem`, `derBytes`, `tbsBytes`) are intentionally
+ * omitted — the caller already has the input, and raw bytes don't
+ * belong in a JSON payload.
+ *
+ * `fingerprints` is populated when supplied by the caller (both the UI
+ * and the API compute them via {@link computeFingerprints} separately).
+ */
+export interface X509JsonSummary {
+    /** TBS and signature-level fields. */
+    certificate: {
+        version: number;
+        serialNumber: string;
+        signatureAlgorithm: string;
+        signatureAlgorithmOid: string;
+        issuer: string;
+        validity: { notBefore: string; notAfter: string };
+        subject: string;
+        subjectPublicKey: {
+            algorithm: string;
+            algorithmOid: string;
+            curve?: string;
+            sizeBits?: number;
+        };
+    };
+    /** Keyed by `ext:<name>` for known extensions, `ext:<oid>` otherwise. */
+    extensions: Record<string, X509ExtensionJson>;
+    /** `:`-separated hex of the signature bits. */
+    signatureValue: string;
+    /** SHA-1 and SHA-256 digests of the DER encoding, if computed. */
+    fingerprints?: { sha256: string; sha1: string };
+}
+
+export interface X509ExtensionJson {
+    oid: string;
+    critical: boolean;
+    [k: string]: unknown;
+}
+
+/**
+ * Build the shared JSON summary. The UI then slices this into its three
+ * right-column blocks (`certificate`, `extensions`, signature) and the
+ * API returns it (plus `analysis`) more or less verbatim.
+ */
+export function toX509JsonSummary(
+    cert: X509Decoded,
+    fingerprints?: { sha1: string; sha256: string } | null,
+): X509JsonSummary {
+    const summary: X509JsonSummary = {
+        certificate: {
+            version: cert.version,
+            serialNumber: cert.serialNumber,
+            signatureAlgorithm: cert.signatureAlgorithm,
+            signatureAlgorithmOid: cert.signatureAlgorithmOid,
+            issuer: cert.issuer.dn,
+            validity: {
+                notBefore: cert.validity.notBefore.toISOString(),
+                notAfter: cert.validity.notAfter.toISOString(),
+            },
+            subject: cert.subject.dn,
+            subjectPublicKey: {
+                algorithm: cert.subjectPublicKey.algorithm,
+                algorithmOid: cert.subjectPublicKey.algorithmOid,
+                ...(cert.subjectPublicKey.curve && {
+                    curve: cert.subjectPublicKey.curve,
+                }),
+                ...(cert.subjectPublicKey.sizeBits !== undefined && {
+                    sizeBits: cert.subjectPublicKey.sizeBits,
+                }),
+            },
+        },
+        extensions: buildExtensionsJson(cert),
+        signatureValue: cert.signature.hex,
+    };
+    if (fingerprints) {
+        summary.fingerprints = {
+            sha256: fingerprints.sha256,
+            sha1: fingerprints.sha1,
+        };
+    }
+    return summary;
+}
+
+/**
+ * Shape a single extension into the JSON form consumed by the UI's
+ * `DecodedBlock` and returned by the API. Keyed by extension's
+ * canonical identifier (`ext:<name>` for known, `ext:<oid>` for custom).
+ */
+export function extensionToJson(ext: X509Extension): X509ExtensionJson {
+    const base: X509ExtensionJson = {
+        oid: ext.oid,
+        critical: ext.critical,
+    };
+    switch (ext.value.kind) {
+        case "basicConstraints":
+            base.ca = ext.value.ca;
+            if (ext.value.pathLenConstraint !== undefined) {
+                base.pathLenConstraint = ext.value.pathLenConstraint;
+            }
+            break;
+        case "keyUsage":
+            base.usages = ext.value.usages;
+            break;
+        case "extKeyUsage":
+            base.usages = ext.value.usages;
+            break;
+        case "subjectAltName":
+            base.names = ext.value.names;
+            break;
+        case "subjectKeyIdentifier":
+            base.keyId = ext.value.keyId;
+            break;
+        case "authorityKeyIdentifier":
+            if (ext.value.keyId) base.keyId = ext.value.keyId;
+            if (ext.value.issuer) base.issuer = ext.value.issuer;
+            if (ext.value.serialNumber) {
+                base.serialNumber = ext.value.serialNumber;
+            }
+            break;
+        case "crlDistributionPoints":
+            base.urls = ext.value.urls;
+            break;
+        case "authorityInfoAccess":
+            base.entries = ext.value.entries;
+            break;
+        case "certificatePolicies":
+            base.policies = ext.value.policies;
+            break;
+        case "unknown":
+            base.hex = ext.value.hex;
+            break;
+    }
+    return base;
+}
+
+/**
+ * Canonical key for an extension in the JSON summary: `ext:<name>` for
+ * extensions in the catalog, `ext:<oid>` for anything else. Mirrors
+ * `KNOWN_X509_FIELDS[].key` so UI click-to-flash resolves cleanly.
+ */
+export function extensionJsonKey(ext: X509Extension): string {
+    const OID_TO_KEY: Record<string, string> = Object.fromEntries(
+        Object.entries(EXT_KEY_TO_OID).map(([k, v]) => [v, k]),
+    );
+    return OID_TO_KEY[ext.oid] ?? `ext:${ext.oid}`;
+}
+
+function buildExtensionsJson(
+    cert: X509Decoded,
+): Record<string, X509ExtensionJson> {
+    const out: Record<string, X509ExtensionJson> = {};
+    for (const ext of cert.extensions) {
+        out[extensionJsonKey(ext)] = extensionToJson(ext);
+    }
+    return out;
 }
