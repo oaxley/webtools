@@ -9,6 +9,8 @@
 import { Hono } from "hono";
 import ip from "./routes/ip";
 import jwt from "./routes/jwt";
+import mcp from "./routes/mcp";
+import x509 from "./routes/x509";
 
 const app = new Hono();
 
@@ -17,5 +19,11 @@ const app = new Hono();
 // stay version-agnostic.
 app.route("/api/v1/ip", ip);
 app.route("/api/v1/jwt", jwt);
+app.route("/api/v1/x509", x509);
+
+// MCP (Model Context Protocol) endpoint. Lives at the conventional
+// `/mcp` path, outside the versioned API namespace, so standard MCP
+// clients find it without extra configuration.
+app.route("/mcp", mcp);
 
 export default app;

@@ -23,6 +23,11 @@
 
     /* Disable emitting files from a compilation. */
 		"noEmit": true,
+    /* `@webtools/core` is consumed as source and uses explicit `.ts`
+       extensions on its internal imports so Node's native TS loader
+       can run its tests. We're `noEmit`, so letting those through is
+       safe. */
+		"allowImportingTsExtensions": true,
 
     /* Ensure that each file can be safely transpiled without relying on other imports. */
 		"isolatedModules": true,
