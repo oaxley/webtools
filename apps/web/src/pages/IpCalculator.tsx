@@ -476,22 +476,22 @@ function IpCalculator() {
     // `anchor` ties each box to its matching <div id> in the field guide below.
     const children: Array<NodeBox & { anchor: string }> = [
       {
-        label: 'Broadcast',
-        value: result.broadcast,
+        label: 'Network',
+        value: result.network,
         cx: childCenters[0].x,
         cy: childCenters[0].y,
         width: childWidth,
         height: 60,
-        anchor: 'field-broadcast',
+        anchor: 'field-network',
       },
       {
-        label: 'Subnet mask',
-        value: result.subnetMask,
+        label: 'Broadcast',
+        value: result.broadcast,
         cx: childCenters[1].x,
         cy: childCenters[1].y,
         width: childWidth,
         height: 60,
-        anchor: 'field-subnet-mask',
+        anchor: 'field-broadcast',
       },
       {
         label: 'First host',
@@ -513,7 +513,18 @@ function IpCalculator() {
       },
     ]
 
-    const grandchildren: Array<NodeBox & { anchor: string }> = [
+    // `parent` is the index in `children` each grandchild hangs from.
+    const grandchildren: Array<NodeBox & { anchor: string; parent: number }> = [
+      {
+        label: 'Subnet mask',
+        value: result.subnetMask,
+        cx: childCenters[0].x,
+        cy: grandY,
+        width: childWidth,
+        height: 60,
+        anchor: 'field-subnet-mask',
+        parent: 0,
+      },
       {
         label: 'Last host',
         value: result.lastHost ?? '—',
@@ -522,6 +533,7 @@ function IpCalculator() {
         width: childWidth,
         height: 60,
         anchor: 'field-host-range',
+        parent: 2,
       },
       {
         label: 'Usable hosts',
@@ -531,6 +543,7 @@ function IpCalculator() {
         width: childWidth,
         height: 60,
         anchor: 'field-usable',
+        parent: 3,
       },
     ]
 
@@ -555,26 +568,24 @@ function IpCalculator() {
       )
     }
 
-    // First host → Last host and Total addresses → Usable hosts.
-    drawLink(
-      ctx,
-      { x: children[2].cx, y: children[2].cy + children[2].height / 2 },
-      { x: grandchildren[0].cx, y: grandchildren[0].cy - grandchildren[0].height / 2 },
-      border,
-    )
-    drawLink(
-      ctx,
-      { x: children[3].cx, y: children[3].cy + children[3].height / 2 },
-      { x: grandchildren[1].cx, y: grandchildren[1].cy - grandchildren[1].height / 2 },
-      border,
-    )
+    // Child → grandchild links: Network → Subnet mask, First host → Last host,
+    // Total addresses → Usable hosts.
+    for (const g of grandchildren) {
+      const p = children[g.parent]
+      drawLink(
+        ctx,
+        { x: p.cx, y: p.cy + p.height / 2 },
+        { x: g.cx, y: g.cy - g.height / 2 },
+        border,
+      )
+    }
 
     // Cloud (Internet).
     drawCloud(ctx, cloudCenter.x, cloudCenter.y, text, panel)
 
     // Subnet box without the value — the HTML input overlay renders it.
     const subnetNode: NodeBox = {
-      label: 'Subnet',
+      label: 'IP',
       value: '',
       cx: subnetCenter.x,
       cy: subnetCenter.y,
@@ -846,7 +857,7 @@ function IpCalculator() {
         </p>
         <dl>
           <div id="field-network">
-            <dt>Network / Subnet</dt>
+            <dt>Network</dt>
             <dd>
               The first address of the block. All host bits are zero — it
               identifies the subnet itself and cannot be assigned to a device.
