@@ -16,8 +16,8 @@ All versioned under `/api/v1`:
 
 ## MCP endpoint
 
-`POST /mcp` exposes the IP subnet calculator and the JWT decoder as
-Model Context Protocol tools. The transport is **Streamable HTTP** in **stateless, JSON-response
+`POST /mcp` exposes the IP subnet calculator, the JWT decoder and the
+X.509 certificate decoder as Model Context Protocol tools. The transport is **Streamable HTTP** in **stateless, JSON-response
 mode** — each request is self-contained, no session id, no SSE replay.
 No auth; the endpoint is public, same posture as `/api/v1/*`.
 
@@ -27,6 +27,7 @@ No auth; the endpoint is public, same posture as `/api/v1/*`.
 |------|-----------|---------|
 | `calculate_cidr` | `{ cidr: string }` (IPv4 CIDR, e.g. `192.168.1.0/24`) | JSON text block with the same shape as `/api/v1/ip`, including `routable`. Core errors surface verbatim as `isError: true` tool results. |
 | `decode_jwt` | `{ token: string }` (compact JWT) | JSON text block with the same shape as `POST /api/v1/jwt` (`header`, `payload`, `signature`, `analysis`). The signature is **not** verified and the token is never echoed back. Decode errors surface verbatim as `isError: true` tool results. |
+| `decode_x509` | `{ certificate: string }` (PEM or raw base64 DER) | JSON text block with the same shape as `POST /api/v1/x509` (`certificate`, `extensions`, `fingerprints`, `analysis`) **minus `signatureValue`** — the raw signature hex is long and of no use to a model. Neither the signature nor the chain is verified. Decode errors surface verbatim as `isError: true` tool results. |
 
 ### Hooking it up in an MCP client
 

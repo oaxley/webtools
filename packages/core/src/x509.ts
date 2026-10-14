@@ -1540,6 +1540,50 @@ export function toX509JsonSummary(
 }
 
 /**
+ * Full API view of a certificate: the shared {@link X509JsonSummary}
+ * (always with fingerprints) plus an `analysis` block mirroring the JWT
+ * API shape (state + message + human-readable notBefore / notAfter).
+ *
+ * Returned by `POST /api/v1/x509`; the MCP `decode_x509` tool returns
+ * the same shape minus `signatureValue`.
+ */
+export interface X509ApiResponse extends X509JsonSummary {
+    fingerprints: { sha256: string; sha1: string };
+    analysis: {
+        state: X509ValidityState;
+        message: string;
+        /** `notBefore` as a human-readable UTC date. */
+        notBefore: string;
+        /** `notAfter` as a human-readable UTC date. */
+        notAfter: string;
+    };
+}
+
+/**
+ * Build the {@link X509ApiResponse} for a parsed certificate. Async
+ * because fingerprints go through `crypto.subtle`. `now` can be
+ * injected for deterministic tests.
+ */
+export async function toX509ApiResponse(
+    cert: X509Decoded,
+    now: Date = new Date(),
+): Promise<X509ApiResponse> {
+    const fingerprints = await computeFingerprints(cert);
+    const summary = toX509JsonSummary(cert, fingerprints);
+    const validity = describeValidity(cert, now);
+    return {
+        ...summary,
+        fingerprints,
+        analysis: {
+            state: validity.state,
+            message: validity.message,
+            notBefore: validity.notBeforeText,
+            notAfter: validity.notAfterText,
+        },
+    };
+}
+
+/**
  * Shape a single extension into the JSON form consumed by the UI's
  * `DecodedBlock` and returned by the API. Keyed by extension's
  * canonical identifier (`ext:<name>` for known, `ext:<oid>` for custom).

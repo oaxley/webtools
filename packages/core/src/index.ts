@@ -36,9 +36,11 @@ export {
     extensionToJson,
     hasX509Field,
     KNOWN_X509_FIELDS,
+    toX509ApiResponse,
     toX509JsonSummary,
 } from "./x509";
 export type {
+    X509ApiResponse,
     X509Decoded,
     X509Extension,
     X509ExtensionJson,

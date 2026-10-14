@@ -1,6 +1,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { SAMPLE_CA, SAMPLE_RSA, pemToBase64Der } from "./fixtures";
+
 /**
  * JSON-RPC envelope helper. The MCP Streamable HTTP transport demands
  * both media types in `Accept` (even in JSON-response mode), so every
@@ -65,11 +67,19 @@ describe("POST /mcp", () => {
     const byName = Object.fromEntries(
       body.result.tools.map((t) => [t.name, t]),
     );
-    expect(Object.keys(byName).sort()).toEqual(["calculate_cidr", "decode_jwt"]);
+    expect(Object.keys(byName).sort()).toEqual([
+      "calculate_cidr",
+      "decode_jwt",
+      "decode_x509",
+    ]);
     expect(byName.calculate_cidr.description).toMatch(/IPv4 CIDR/);
     expect(byName.calculate_cidr.inputSchema.properties).toHaveProperty("cidr");
     expect(byName.decode_jwt.description).toMatch(/JWT/);
     expect(byName.decode_jwt.inputSchema.properties).toHaveProperty("token");
+    expect(byName.decode_x509.description).toMatch(/X\.509/);
+    expect(byName.decode_x509.inputSchema.properties).toHaveProperty(
+      "certificate",
+    );
   });
 
   it("`tools/call calculate_cidr` on 192.168.1.0/24 returns the same shape as /api/v1/ip (non-routable)", async () => {
@@ -257,6 +267,119 @@ describe("POST /mcp — decode_jwt", () => {
     const message =
       body.error?.message ?? body.result?.content?.[0]?.text ?? "";
     expect(message.toLowerCase()).toContain("token");
+  });
+});
+
+async function callDecodeX509(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 20,
+    method: "tools/call",
+    params: { name: "decode_x509", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — decode_x509", () => {
+  it("decodes a PEM certificate with fingerprints and analysis", async () => {
+    const body = await callDecodeX509({ certificate: SAMPLE_CA });
+    expect(body.result?.isError).toBeFalsy();
+    expect(body.result?.content?.[0].type).toBe("text");
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.certificate.subject).toBe(
+      "CN=Example Root CA, O=Example, C=US",
+    );
+    expect(payload.certificate.issuer).toBe(
+      "CN=Example Root CA, O=Example, C=US",
+    );
+    expect(payload.extensions["ext:basicConstraints"].ca).toBe(true);
+    expect(payload.fingerprints.sha256).toMatch(
+      /^[0-9a-f]{2}(:[0-9a-f]{2}){31}$/,
+    );
+    expect(payload.fingerprints.sha1).toMatch(
+      /^[0-9a-f]{2}(:[0-9a-f]{2}){19}$/,
+    );
+    // Fixture is valid until 2036.
+    expect(payload.analysis.state).toBe("active");
+    expect(payload.analysis.message).toMatch(
+      /^Certificate is valid for another /,
+    );
+    expect(payload.analysis.notAfter).toMatch(/UTC$/);
+  });
+
+  it("drops the raw signature hex from the output", async () => {
+    const body = await callDecodeX509({ certificate: SAMPLE_CA });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).not.toHaveProperty("signatureValue");
+  });
+
+  it("matches the HTTP API response except for `signatureValue`", async () => {
+    const [mcpBody, httpResponse] = await Promise.all([
+      callDecodeX509({ certificate: SAMPLE_RSA }),
+      SELF.fetch("http://example.com/api/v1/x509", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data: SAMPLE_RSA }),
+      }),
+    ]);
+    const { signatureValue, ...httpRest } = (await httpResponse.json()) as {
+      signatureValue: string;
+    } & Record<string, unknown>;
+    expect(signatureValue.length).toBeGreaterThan(0);
+    expect(JSON.parse(mcpBody.result!.content![0].text)).toEqual(httpRest);
+  });
+
+  it("surfaces SAN / KeyUsage / ExtKeyUsage", async () => {
+    const body = await callDecodeX509({ certificate: SAMPLE_RSA });
+    const { extensions } = JSON.parse(body.result!.content![0].text);
+    expect(extensions["ext:subjectAltName"].names).toEqual([
+      { type: "DNS", value: "example.com" },
+      { type: "DNS", value: "www.example.com" },
+      { type: "IP", value: "192.0.2.1" },
+    ]);
+    expect(extensions["ext:keyUsage"].usages).toEqual([
+      "digitalSignature",
+      "keyEncipherment",
+    ]);
+    expect(extensions["ext:extKeyUsage"].usages).toEqual([
+      "serverAuth",
+      "clientAuth",
+    ]);
+  });
+
+  it("accepts raw base64 DER input (no PEM header)", async () => {
+    const body = await callDecodeX509({
+      certificate: pemToBase64Der(SAMPLE_CA),
+    });
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.certificate.subject).toBe(
+      "CN=Example Root CA, O=Example, C=US",
+    );
+  });
+
+  it("surfaces core errors verbatim as isError tool results", async () => {
+    const input = "!!!definitely-not-base64!!!";
+    const [mcpBody, httpResponse] = await Promise.all([
+      callDecodeX509({ certificate: input }),
+      SELF.fetch("http://example.com/api/v1/x509", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data: input }),
+      }),
+    ]);
+    expect(mcpBody.result?.isError).toBe(true);
+    const { error } = (await httpResponse.json()) as { error: string };
+    expect(error.length).toBeGreaterThan(0);
+    expect(mcpBody.result?.content?.[0].text).toBe(error);
+  });
+
+  it("rejects a call missing the `certificate` argument", async () => {
+    const body = await callDecodeX509({});
+    const message =
+      body.error?.message ?? body.result?.content?.[0]?.text ?? "";
+    expect(message.toLowerCase()).toContain("certificate");
   });
 });
 

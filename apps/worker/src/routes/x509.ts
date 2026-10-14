@@ -11,15 +11,10 @@
  * by `@webtools/core`, with an additional `analysis` block mirroring
  * the JWT route's shape (state + message + human-readable notBefore /
  * notAfter). Using the shared summary keeps the UI, this API and the
- * future MCP server lock-step on key names.
+ * MCP `decode_x509` tool lock-step on key names.
  */
 import { Hono, type Context } from "hono";
-import {
-  computeFingerprints,
-  decodeX509,
-  describeValidity,
-  toX509JsonSummary,
-} from "@webtools/core";
+import { decodeX509, toX509ApiResponse } from "@webtools/core";
 
 const x509 = new Hono();
 
@@ -80,22 +75,10 @@ x509.post("/", async (c) => {
   }
 
   try {
-    const cert = decodeX509(data);
     // Fingerprints are computed server-side via `crypto.subtle` so one
-    // request = full picture, no second roundtrip required.
-    const fingerprints = await computeFingerprints(cert);
-    const summary = toX509JsonSummary(cert, fingerprints);
-    const validity = describeValidity(cert);
-
-    return c.json({
-      ...summary,
-      analysis: {
-        state: validity.state,
-        message: validity.message,
-        notBefore: validity.notBeforeText,
-        notAfter: validity.notAfterText,
-      },
-    });
+    // request = full picture, no second roundtrip required. Same shape
+    // as the MCP `decode_x509` tool (which only drops `signatureValue`).
+    return c.json(await toX509ApiResponse(decodeX509(data)));
   } catch (e) {
     return c.json(
       { error: e instanceof Error ? e.message : "Invalid certificate" },

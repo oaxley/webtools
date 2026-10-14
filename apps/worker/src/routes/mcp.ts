@@ -18,6 +18,11 @@
  * - `decode_jwt(token)` — mirrors `/api/v1/jwt`. Returns the shared
  *   `toJwtJsonSummary` shape (header, payload, signature, analysis).
  *   No signature verification. Core errors surface as `isError: true`.
+ * - `decode_x509(certificate)` — mirrors `/api/v1/x509` (PEM or raw
+ *   base64 DER). Returns the shared `toX509ApiResponse` shape minus
+ *   `signatureValue`: the raw signature hex is hundreds of characters
+ *   an LLM has no use for, so we don't spend tokens on it. No chain or
+ *   signature verification. Core errors surface as `isError: true`.
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -27,8 +32,10 @@ import { z } from "zod";
 import {
   calculateCIDR,
   decodeJWT,
+  decodeX509,
   isRoutable,
   toJwtJsonSummary,
+  toX509ApiResponse,
 } from "@webtools/core";
 
 const mcp = new Hono();
@@ -115,6 +122,37 @@ function buildServer(): McpServer {
         return jsonResult(toJwtJsonSummary(decodeJWT(token)));
       } catch (e) {
         return errorResult(e, "Invalid JWT");
+      }
+    },
+  );
+
+  server.registerTool(
+    "decode_x509",
+    {
+      title: "X.509 Certificate Decoder",
+      description:
+        "Decode an X.509 certificate (PEM or raw base64 DER) and report its subject, issuer, validity window, " +
+        "public key, extensions (SAN, KeyUsage, ExtKeyUsage, BasicConstraints, …) and SHA-1/SHA-256 fingerprints. " +
+        "The `analysis` block says whether it is pending, active or expired, with human-readable UTC dates. " +
+        "Does NOT verify the signature or the certificate chain.",
+      inputSchema: {
+        certificate: z
+          .string()
+          .min(1)
+          .describe(
+            "PEM certificate (-----BEGIN CERTIFICATE----- …) or raw base64 DER",
+          ),
+      },
+    },
+    async ({ certificate }) => {
+      try {
+        // Same shape as POST /api/v1/x509, minus the raw signature hex
+        // (long, and useless to a model). The input is never echoed back.
+        const { signatureValue: _signature, ...rest } =
+          await toX509ApiResponse(decodeX509(certificate));
+        return jsonResult(rest);
+      } catch (e) {
+        return errorResult(e, "Invalid certificate");
       }
     },
   );
