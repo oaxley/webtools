@@ -6,11 +6,7 @@
  * echo the original token for the same reason.
  */
 import { Hono, type Context } from "hono";
-import {
-  decodeJWT,
-  describeExpiry,
-  timeClaimTexts,
-} from "@webtools/core";
+import { decodeJWT, toJwtJsonSummary } from "@webtools/core";
 
 const jwt = new Hono();
 
@@ -68,32 +64,11 @@ jwt.post("/", async (c) => {
   }
 
   try {
-    const decoded = decodeJWT(data);
-    const expiry = describeExpiry(decoded.payload.json);
-
-    // Build the `analysis` block. Known time claims are rendered as
-    // human-readable UTC strings under their *original* names (exp,
-    // nbf, iat, auth_time) — the raw numeric values stay untouched
-    // in `payload` so programmatic consumers still see them.
-    const timeTexts = timeClaimTexts(decoded.payload.json);
-    const analysis: Record<string, unknown> = {
-      state: expiry.state,
-      message: expiry.message,
-    };
-    for (const [textKey, value] of Object.entries(timeTexts)) {
-      // `timeClaimTexts` returns keys like "exp-text" — strip the suffix.
-      analysis[textKey.replace(/-text$/, "")] = value;
-    }
-
-    // We intentionally do NOT include the original token in the
-    // response — the caller already has it, and echoing it back only
-    // widens the blast radius of a mistakenly cached response.
-    return c.json({
-      header: decoded.header.json,
-      payload: decoded.payload.json,
-      signature: decoded.signature,
-      analysis,
-    });
+    // The shared summary renders known time claims as human-readable
+    // UTC strings under `analysis.<claim>` (raw numeric values stay in
+    // `payload`) and deliberately omits the original token. Same shape
+    // as the MCP `decode_jwt` tool.
+    return c.json(toJwtJsonSummary(decodeJWT(data)));
   } catch (e) {
     return c.json(
       { error: e instanceof Error ? e.message : "Invalid JWT" },

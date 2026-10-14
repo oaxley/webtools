@@ -15,18 +15,49 @@
  *   `calculateCIDR` result enriched with `routable: isRoutable(cidr)`.
  *   Core errors (invalid CIDR, bad prefix, etc.) are surfaced verbatim
  *   as `isError: true` tool results, same contract as the HTTP route.
+ * - `decode_jwt(token)` — mirrors `/api/v1/jwt`. Returns the shared
+ *   `toJwtJsonSummary` shape (header, payload, signature, analysis).
+ *   No signature verification. Core errors surface as `isError: true`.
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/cfworker";
 import { z } from "zod";
-import { calculateCIDR, isRoutable } from "@webtools/core";
+import {
+  calculateCIDR,
+  decodeJWT,
+  isRoutable,
+  toJwtJsonSummary,
+} from "@webtools/core";
 
 const mcp = new Hono();
 
+/** Wrap a JSON-serialisable value as a successful text tool result. */
+function jsonResult(value: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(value) }],
+  };
+}
+
 /**
- * Build a fresh `McpServer` with the IP-calculator tool registered.
+ * Turn a thrown core error into an `isError: true` tool result, passing
+ * the message through verbatim (same contract as the HTTP routes).
+ */
+function errorResult(e: unknown, fallback: string) {
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text" as const,
+        text: e instanceof Error ? e.message : fallback,
+      },
+    ],
+  };
+}
+
+/**
+ * Build a fresh `McpServer` with every webtools tool registered.
  *
  * A new instance per request is cheap and keeps the handler stateless;
  * it also sidesteps the "transport can only be connected once" rule in
@@ -36,7 +67,7 @@ const mcp = new Hono();
  */
 function buildServer(): McpServer {
   const server = new McpServer(
-    { name: "webtools-ip", version: "1.0.0" },
+    { name: "webtools", version: "1.0.0" },
     { jsonSchemaValidator: new CfWorkerJsonSchemaValidator() },
   );
 
@@ -56,24 +87,34 @@ function buildServer(): McpServer {
       try {
         const result = calculateCIDR(cidr);
         const routable = isRoutable(cidr);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ ...result, routable }),
-            },
-          ],
-        };
+        return jsonResult({ ...result, routable });
       } catch (e) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: e instanceof Error ? e.message : "Invalid IPv4 CIDR",
-            },
-          ],
-        };
+        return errorResult(e, "Invalid IPv4 CIDR");
+      }
+    },
+  );
+
+  server.registerTool(
+    "decode_jwt",
+    {
+      title: "JWT Decoder",
+      description:
+        "Decode a compact JWT (header.payload.signature) and report whether it is expired, not yet valid, or still valid. " +
+        "Time claims (exp, nbf, iat, auth_time) are also rendered as human-readable UTC dates under `analysis`. " +
+        "Does NOT verify the signature.",
+      inputSchema: {
+        token: z
+          .string()
+          .min(1)
+          .describe("Compact JWT, e.g. eyJhbGciOi...<payload>.<signature>"),
+      },
+    },
+    ({ token }) => {
+      try {
+        // Same shape as POST /api/v1/jwt; the token is never echoed back.
+        return jsonResult(toJwtJsonSummary(decodeJWT(token)));
+      } catch (e) {
+        return errorResult(e, "Invalid JWT");
       }
     },
   );

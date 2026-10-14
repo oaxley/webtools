@@ -39,13 +39,13 @@ describe("POST /mcp", () => {
       };
     };
     expect(body.result.serverInfo).toMatchObject({
-      name: "webtools-ip",
+      name: "webtools",
       version: "1.0.0",
     });
     expect(typeof body.result.protocolVersion).toBe("string");
   });
 
-  it("`tools/list` returns the single `calculate_cidr` tool", async () => {
+  it("`tools/list` returns every webtools tool", async () => {
     const response = await rpc({
       jsonrpc: "2.0",
       id: 1,
@@ -62,11 +62,14 @@ describe("POST /mcp", () => {
         }>;
       };
     };
-    expect(body.result.tools).toHaveLength(1);
-    const [tool] = body.result.tools;
-    expect(tool.name).toBe("calculate_cidr");
-    expect(tool.description).toMatch(/IPv4 CIDR/);
-    expect(tool.inputSchema.properties).toHaveProperty("cidr");
+    const byName = Object.fromEntries(
+      body.result.tools.map((t) => [t.name, t]),
+    );
+    expect(Object.keys(byName).sort()).toEqual(["calculate_cidr", "decode_jwt"]);
+    expect(byName.calculate_cidr.description).toMatch(/IPv4 CIDR/);
+    expect(byName.calculate_cidr.inputSchema.properties).toHaveProperty("cidr");
+    expect(byName.decode_jwt.description).toMatch(/JWT/);
+    expect(byName.decode_jwt.inputSchema.properties).toHaveProperty("token");
   });
 
   it("`tools/call calculate_cidr` on 192.168.1.0/24 returns the same shape as /api/v1/ip (non-routable)", async () => {
@@ -160,6 +163,100 @@ describe("POST /mcp", () => {
     const message =
       body.error?.message ?? body.result?.content?.[0]?.text ?? "";
     expect(message.toLowerCase()).toContain("cidr");
+  });
+});
+
+// Canonical jwt.io sample — HS256 header, 3-claim payload, known signature.
+const SAMPLE_JWT =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+  "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ." +
+  "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+
+const b64url = (obj: Record<string, unknown>) =>
+  Buffer.from(JSON.stringify(obj), "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+type ToolCallBody = {
+  error?: { message: string };
+  result?: {
+    isError?: boolean;
+    content?: Array<{ type: string; text: string }>;
+  };
+};
+
+async function callDecodeJwt(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 10,
+    method: "tools/call",
+    params: { name: "decode_jwt", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — decode_jwt", () => {
+  it("returns the same shape as /api/v1/jwt", async () => {
+    const body = await callDecodeJwt({ token: SAMPLE_JWT });
+    expect(body.result?.isError).toBeFalsy();
+    expect(body.result?.content?.[0].type).toBe("text");
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.header).toEqual({ alg: "HS256", typ: "JWT" });
+    expect(payload.payload).toEqual({
+      sub: "1234567890",
+      name: "John Doe",
+      iat: 1516239022,
+    });
+    expect(payload.signature).toBe(
+      "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+    );
+    expect(payload.analysis.state).toBe("no_expiry");
+    expect(payload.analysis.iat).toMatch(/18 January 2018/);
+    // The token itself is never echoed back.
+    expect(body.result!.content![0].text).not.toContain(SAMPLE_JWT);
+  });
+
+  it("matches the HTTP API response byte-for-byte", async () => {
+    const [mcpBody, httpResponse] = await Promise.all([
+      callDecodeJwt({ token: SAMPLE_JWT }),
+      SELF.fetch("http://example.com/api/v1/jwt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ data: SAMPLE_JWT }),
+      }),
+    ]);
+    expect(JSON.parse(mcpBody.result!.content![0].text)).toEqual(
+      await httpResponse.json(),
+    );
+  });
+
+  it("reports an expired token", async () => {
+    const past = Math.floor(Date.now() / 1000) - 7200;
+    const token = `${b64url({ alg: "HS256" })}.${b64url({ exp: past })}.sig`;
+    const body = await callDecodeJwt({ token });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.analysis.state).toBe("expired");
+    expect(payload.analysis.message).toMatch(/^Token expired/);
+    expect(payload.analysis.exp).toMatch(/UTC/);
+    expect(payload.payload.exp).toBe(past);
+  });
+
+  it("surfaces core errors verbatim as isError tool results", async () => {
+    const body = await callDecodeJwt({ token: "not.a.jwt.at.all" });
+    expect(body.result?.isError).toBe(true);
+    expect(body.result?.content?.[0].text).toBe(
+      "Invalid JWT: expected 3 dot-separated segments, got 5.",
+    );
+  });
+
+  it("rejects a call missing the `token` argument", async () => {
+    const body = await callDecodeJwt({});
+    const message =
+      body.error?.message ?? body.result?.content?.[0]?.text ?? "";
+    expect(message.toLowerCase()).toContain("token");
   });
 });
 

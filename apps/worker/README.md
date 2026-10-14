@@ -16,8 +16,8 @@ All versioned under `/api/v1`:
 
 ## MCP endpoint
 
-`POST /mcp` exposes the IP subnet calculator as a Model Context Protocol
-tool. The transport is **Streamable HTTP** in **stateless, JSON-response
+`POST /mcp` exposes the IP subnet calculator and the JWT decoder as
+Model Context Protocol tools. The transport is **Streamable HTTP** in **stateless, JSON-response
 mode** — each request is self-contained, no session id, no SSE replay.
 No auth; the endpoint is public, same posture as `/api/v1/*`.
 
@@ -26,6 +26,7 @@ No auth; the endpoint is public, same posture as `/api/v1/*`.
 | Name | Arguments | Returns |
 |------|-----------|---------|
 | `calculate_cidr` | `{ cidr: string }` (IPv4 CIDR, e.g. `192.168.1.0/24`) | JSON text block with the same shape as `/api/v1/ip`, including `routable`. Core errors surface verbatim as `isError: true` tool results. |
+| `decode_jwt` | `{ token: string }` (compact JWT) | JSON text block with the same shape as `POST /api/v1/jwt` (`header`, `payload`, `signature`, `analysis`). The signature is **not** verified and the token is never echoed back. Decode errors surface verbatim as `isError: true` tool results. |
 
 ### Hooking it up in an MCP client
 
@@ -34,7 +35,7 @@ For example, in `mcp.json` / `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "webtools-ip": {
+    "webtools": {
       "transport": "http",
       "url": "https://<your-worker-host>/mcp"
     }

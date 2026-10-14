@@ -11,6 +11,7 @@ export {
     hasClaim,
     relativeDuration,
     timeClaimTexts,
+    toJwtJsonSummary,
     verboseDuration,
 } from "./jwt";
 export type {
@@ -21,6 +22,7 @@ export type {
     JwtClaimLocation,
     JwtClaimSpec,
     JwtDecoded,
+    JwtJsonSummary,
     JwtPart,
     TimeClaim,
 } from "./jwt";

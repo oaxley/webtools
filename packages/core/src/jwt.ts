@@ -427,6 +427,59 @@ export function timeClaimTexts(
     return out;
 }
 
+/**
+ * JSON-friendly view of a decoded JWT, shared by the HTTP API
+ * (`/api/v1/jwt`) and the MCP `decode_jwt` tool so both stay in
+ * lock-step on key names.
+ *
+ * The original token is deliberately NOT included: the caller already
+ * has it, and echoing it back only widens the blast radius of a
+ * mistakenly cached or logged response.
+ */
+export interface JwtJsonSummary {
+    header: Record<string, unknown>;
+    payload: Record<string, unknown>;
+    signature: string;
+    analysis: {
+        state: ExpiryState;
+        message: string;
+        /**
+         * Human-readable UTC strings for every known time claim present
+         * in the payload, keyed by the *original* claim name (exp, nbf,
+         * iat, auth_time). Raw numeric values stay untouched in `payload`.
+         */
+        [claim: string]: string;
+    };
+}
+
+/**
+ * Build the {@link JwtJsonSummary} for a decoded token. `now` can be
+ * injected for deterministic tests.
+ */
+export function toJwtJsonSummary(
+    decoded: JwtDecoded,
+    now: Date = new Date(),
+): JwtJsonSummary {
+    const expiry = describeExpiry(decoded.payload.json, now);
+    const analysis: JwtJsonSummary["analysis"] = {
+        state: expiry.state,
+        message: expiry.message,
+    };
+    for (const [textKey, value] of Object.entries(
+        timeClaimTexts(decoded.payload.json),
+    )) {
+        // `timeClaimTexts` returns keys like "exp-text" — strip the suffix.
+        analysis[textKey.replace(/-text$/, "")] = value;
+    }
+
+    return {
+        header: decoded.header.json,
+        payload: decoded.payload.json,
+        signature: decoded.signature,
+        analysis,
+    };
+}
+
 export type ExpiryState = "valid" | "expired" | "not_yet_valid" | "no_expiry";
 
 export interface ExpiryStatus {
