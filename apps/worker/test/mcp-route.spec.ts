@@ -71,7 +71,10 @@ describe("POST /mcp", () => {
       "calculate_cidr",
       "decode_jwt",
       "decode_x509",
+      "generate_uuid",
     ]);
+    expect(byName.generate_uuid.description).toMatch(/UUID/);
+    expect(byName.generate_uuid.inputSchema.properties).toHaveProperty("count");
     expect(byName.calculate_cidr.description).toMatch(/IPv4 CIDR/);
     expect(byName.calculate_cidr.inputSchema.properties).toHaveProperty("cidr");
     expect(byName.decode_jwt.description).toMatch(/JWT/);
@@ -380,6 +383,52 @@ describe("POST /mcp — decode_x509", () => {
     const message =
       body.error?.message ?? body.result?.content?.[0]?.text ?? "";
     expect(message.toLowerCase()).toContain("certificate");
+  });
+});
+
+async function callGenerateUuid(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 30,
+    method: "tools/call",
+    params: { name: "generate_uuid", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — generate_uuid", () => {
+  it("defaults to a single v7 UUID", async () => {
+    const body = await callGenerateUuid({});
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.version).toBe(7);
+    expect(payload.count).toBe(1);
+    expect(payload.uuids).toHaveLength(1);
+    expect(payload.uuids[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("generates the requested v4 batch in upper case", async () => {
+    const body = await callGenerateUuid({
+      version: 4,
+      count: 10,
+      uppercase: true,
+    });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ version: 4, count: 10 });
+    for (const id of payload.uuids) {
+      expect(id).toMatch(
+        /^[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/,
+      );
+    }
+  });
+
+  it("rejects a count above 10", async () => {
+    const body = await callGenerateUuid({ count: 11 });
+    const failed = body.error !== undefined || body.result?.isError === true;
+    expect(failed).toBe(true);
   });
 });
 

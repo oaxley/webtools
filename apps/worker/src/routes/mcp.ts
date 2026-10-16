@@ -23,6 +23,9 @@
  *   `signatureValue`: the raw signature hex is hundreds of characters
  *   an LLM has no use for, so we don't spend tokens on it. No chain or
  *   signature verification. Core errors surface as `isError: true`.
+ * - `generate_uuid(version?, count?, uppercase?)` — mirrors
+ *   `/api/v1/uuid`. Returns `{ version, count, uuids }` with 1..10 v4 or
+ *   v7 (default) UUIDs.
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -33,7 +36,9 @@ import {
   calculateCIDR,
   decodeJWT,
   decodeX509,
+  generateUUIDs,
   isRoutable,
+  MAX_UUID_COUNT,
   toJwtJsonSummary,
   toX509ApiResponse,
 } from "@webtools/core";
@@ -153,6 +158,43 @@ function buildServer(): McpServer {
         return jsonResult(rest);
       } catch (e) {
         return errorResult(e, "Invalid certificate");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_uuid",
+    {
+      title: "UUID Generator",
+      description:
+        `Generate 1 to ${MAX_UUID_COUNT} RFC 9562 UUIDs. ` +
+        "Version 7 (default) is time-ordered and sorts by creation time, a good fit for database keys; " +
+        "version 4 is fully random.",
+      inputSchema: {
+        version: z
+          .union([z.literal(4), z.literal(7)])
+          .optional()
+          .describe("UUID version: 4 (random) or 7 (time-ordered, default)"),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_UUID_COUNT)
+          .optional()
+          .describe(`How many UUIDs to generate, 1 to ${MAX_UUID_COUNT} (default 1)`),
+        uppercase: z
+          .boolean()
+          .optional()
+          .describe("Use upper-case hex digits (default false)"),
+      },
+    },
+    ({ version = 7, count = 1, uppercase }) => {
+      try {
+        // Same shape as GET /api/v1/uuid.
+        const uuids = generateUUIDs({ version, count, uppercase });
+        return jsonResult({ version, count: uuids.length, uuids });
+      } catch (e) {
+        return errorResult(e, "Invalid UUID request");
       }
     },
   );
