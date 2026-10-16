@@ -35,6 +35,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from dotenv import load_dotenv
 
 try:
     # Importing readline is enough for input() to gain line editing and
@@ -50,6 +51,8 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 console = Console()
+
+load_dotenv()
 
 MCP_URL = os.environ.get("MCP_URL", "http://localhost:8787/mcp")
 MAX_TOOL_ROUNDS = 5
