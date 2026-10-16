@@ -5,7 +5,9 @@ type CopyState = 'idle' | 'copied' | 'error'
 
 interface CopyJsonButtonProps {
   /** The value to serialise and copy. Pretty-printed with 2-space indent. */
-  data: unknown
+  data?: unknown
+  /** Plain text to copy verbatim instead of serialising `data`. */
+  text?: string
   /** Label shown next to the icon in the idle state. */
   label?: string
   /** Disable the button (e.g. when there's nothing meaningful to copy yet). */
@@ -28,6 +30,7 @@ interface CopyJsonButtonProps {
  */
 function CopyJsonButton({
   data,
+  text,
   label = 'Copy JSON',
   disabled = false,
   size = 'md',
@@ -58,7 +61,7 @@ function CopyJsonButton({
   }
 
   const handleClick = async () => {
-    const json = JSON.stringify(data, null, 2)
+    const json = text ?? JSON.stringify(data, null, 2)
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(json)

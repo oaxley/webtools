@@ -101,11 +101,11 @@ export const TOOLS: Tool[] = [
     id: 'uuid',
     name: 'UUID Generator',
     description: 'Generate v4 and v7 universally unique identifiers.',
-    tags: ['uuid', 'guid', 'random', 'identifier'],
+    tags: ['uuid', 'guid', 'random', 'identifier', 'v4', 'v7'],
     path: '/uuid',
     monogram: 'ID',
     accent: '#0891b2',
-    available: false,
+    available: true,
   },
   {
     id: 'password',
