@@ -28,6 +28,15 @@ export type {
 } from "./jwt";
 
 export {
+    generateUUIDs,
+    generateUUIDv4,
+    generateUUIDv7,
+    MAX_UUID_COUNT,
+    UUID_VERSIONS,
+} from "./uuid";
+export type { UuidOptions, UuidVersion } from "./uuid";
+
+export {
     computeFingerprints,
     customX509Extensions,
     decodeX509,
