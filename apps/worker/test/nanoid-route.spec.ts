@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 type NanoIdBody = {
 	alphabet: string;
 	size: number;
+	safeEnds: boolean;
 	count: number;
 	ids: string[];
 };
@@ -17,7 +18,12 @@ describe("GET /api/v1/nanoid", () => {
 		const response = await get();
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as NanoIdBody;
-		expect(body).toMatchObject({ alphabet: "url", size: 21, count: 1 });
+		expect(body).toMatchObject({
+			alphabet: "url",
+			size: 21,
+			safeEnds: false,
+			count: 1,
+		});
 		expect(body.ids).toHaveLength(1);
 		expect(body.ids[0]).toMatch(/^[A-Za-z0-9_-]{21}$/);
 	});
@@ -45,7 +51,21 @@ describe("GET /api/v1/nanoid", () => {
 		expect(body.ids[0]).not.toMatch(/[0O1lI_-]/);
 	});
 
+	it("keeps the ends alphanumeric with safeEnds=true", async () => {
+		// 50 batches × 10 IDs: without safeEnds ~30 would hit '-' or '_'.
+		for (let i = 0; i < 50; i++) {
+			const body = (await (
+				await get("?count=10&safeEnds=true")
+			).json()) as NanoIdBody;
+			expect(body.safeEnds).toBe(true);
+			for (const id of body.ids) {
+				expect(id).toMatch(/^[A-Za-z0-9][A-Za-z0-9_-]{19}[A-Za-z0-9]$/);
+			}
+		}
+	});
+
 	it.each([
+		["?safeEnds=maybe", /'safeEnds' must be true or false/],
 		["?count=0", /count must be an integer between 1 and 10/],
 		["?count=11", /count must be an integer between 1 and 10/],
 		["?count=abc", /count must be an integer between 1 and 10/],

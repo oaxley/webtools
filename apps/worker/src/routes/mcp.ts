@@ -26,9 +26,9 @@
  * - `generate_uuid(version?, count?, uppercase?)` — mirrors
  *   `/api/v1/uuid`. Returns `{ version, count, uuids }` with 1..10 v4 or
  *   v7 (default) UUIDs.
- * - `generate_nanoid(count?, size?, alphabet?)` — mirrors
- *   `/api/v1/nanoid`. Returns `{ alphabet, size, count, ids }` with 1..10
- *   NanoIDs (default: 21 characters, `url` alphabet).
+ * - `generate_nanoid(count?, size?, alphabet?, safeEnds?)` — mirrors
+ *   `/api/v1/nanoid`. Returns `{ alphabet, size, safeEnds, count, ids }`
+ *   with 1..10 NanoIDs (default: 21 characters, `url` alphabet).
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -241,13 +241,25 @@ function buildServer(): McpServer {
             "Named alphabet: url (A-Za-z0-9_-, default), alphanumeric, lowercase (a-z0-9), " +
               "numbers, hex, or nolookalikes (alphanumeric without 0 O 1 l I)",
           ),
+        safeEnds: z
+          .boolean()
+          .optional()
+          .describe(
+            "Keep the first and last characters alphanumeric, never '-' or '_' " +
+              "(avoids IDs being read as CLI flags; default false)",
+          ),
       },
     },
-    ({ count = 1, size = NANOID_DEFAULT_SIZE, alphabet = "url" }) => {
+    ({
+      count = 1,
+      size = NANOID_DEFAULT_SIZE,
+      alphabet = "url",
+      safeEnds = false,
+    }) => {
       try {
         // Same shape as GET /api/v1/nanoid.
-        const ids = generateNanoIds({ count, size, alphabet });
-        return jsonResult({ alphabet, size, count: ids.length, ids });
+        const ids = generateNanoIds({ count, size, alphabet, safeEnds });
+        return jsonResult({ alphabet, size, safeEnds, count: ids.length, ids });
       } catch (e) {
         return errorResult(e, "Invalid NanoID request");
       }

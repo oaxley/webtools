@@ -57,6 +57,21 @@ export interface NanoIdOptions {
     size?: number;
     /** Named alphabet. Defaults to `url`. */
     alphabet?: NanoIdAlphabet;
+    /**
+     * Keep the first and last characters alphanumeric (no `-` or `_`),
+     * so IDs are never mistaken for CLI flags and double-click selects
+     * them whole. Only changes anything for the `url` alphabet. Defaults
+     * to false (plain nanoid behaviour).
+     */
+    safeEnds?: boolean;
+}
+
+/** Characters that are awkward at either end of an identifier. */
+const UNSAFE_EDGE_CHARS = /[-_]/g;
+
+/** `chars` minus the characters that are awkward at the edges. */
+function edgeAlphabet(chars: string): string {
+    return chars.replace(UNSAFE_EDGE_CHARS, "");
 }
 
 function isAlphabetName(name: unknown): name is NanoIdAlphabet {
@@ -86,12 +101,29 @@ function randomString(chars: string, size: number): string {
     return id;
 }
 
+/**
+ * Build an ID whose first and last characters come from the edge-safe
+ * subset of `chars` and whose middle comes from the full alphabet. Each
+ * position stays uniform over its own character set.
+ */
+function safeEndsString(chars: string, size: number): string {
+    const ends = randomString(edgeAlphabet(chars), 2);
+    const middle = size > 2 ? randomString(chars, size - 2) : "";
+    return ends[0] + middle + ends[1];
+}
+
 /** Bits of entropy carried by one ID of `size` characters. */
 export function nanoIdEntropyBits(
     size: number = NANOID_DEFAULT_SIZE,
     alphabet: NanoIdAlphabet = "url",
+    safeEnds: boolean = false,
 ): number {
-    return size * Math.log2(NANOID_ALPHABETS[alphabet].length);
+    const chars = NANOID_ALPHABETS[alphabet];
+    if (!safeEnds) return size * Math.log2(chars.length);
+    return (
+        2 * Math.log2(edgeAlphabet(chars).length) +
+        (size - 2) * Math.log2(chars.length)
+    );
 }
 
 /**
@@ -106,6 +138,7 @@ export function generateNanoIds(options: NanoIdOptions = {}): string[] {
         count = 1,
         size = NANOID_DEFAULT_SIZE,
         alphabet = "url",
+        safeEnds = false,
     } = options;
 
     if (!isAlphabetName(alphabet)) {
@@ -129,8 +162,13 @@ export function generateNanoIds(options: NanoIdOptions = {}): string[] {
         );
     }
 
+    if (typeof safeEnds !== "boolean") {
+        throw new Error("safeEnds must be true or false.");
+    }
+
     const chars = NANOID_ALPHABETS[alphabet];
-    return Array.from({ length: count }, () => randomString(chars, size));
+    const generate = safeEnds ? safeEndsString : randomString;
+    return Array.from({ length: count }, () => generate(chars, size));
 }
 
 /**
@@ -141,6 +179,7 @@ export function generateNanoIds(options: NanoIdOptions = {}): string[] {
 export function generateNanoId(
     size: number = NANOID_DEFAULT_SIZE,
     alphabet: NanoIdAlphabet = "url",
+    safeEnds: boolean = false,
 ): string {
-    return generateNanoIds({ size, alphabet })[0];
+    return generateNanoIds({ size, alphabet, safeEnds })[0];
 }

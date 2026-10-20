@@ -31,6 +31,24 @@
   gap: 12px 20px;
 }
 
+.nanoid-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--text-h);
+  cursor: pointer;
+
+  & input {
+    accent-color: var(--accent);
+  }
+
+  &:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 .nanoid-field {
   display: inline-flex;
   align-items: center;

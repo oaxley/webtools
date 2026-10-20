@@ -155,9 +155,71 @@ describe("generateNanoIds", () => {
     });
 });
 
+describe("generateNanoIds — safeEnds", () => {
+    it("never starts or ends with '-' or '_'", () => {
+        // 2,000 IDs: without safeEnds ~3% of each end would be unsafe.
+        for (let i = 0; i < 200; i++) {
+            for (const id of generateNanoIds({
+                count: MAX_NANOID_COUNT,
+                safeEnds: true,
+            })) {
+                assert.equal(id.length, NANOID_DEFAULT_SIZE);
+                assert.match(id, /^[A-Za-z0-9][A-Za-z0-9_-]*[A-Za-z0-9]$/);
+            }
+        }
+    });
+
+    it("still uses '-' and '_' in the middle", () => {
+        const middle = generateNanoIds({
+            size: NANOID_MAX_SIZE,
+            count: MAX_NANOID_COUNT,
+            safeEnds: true,
+        })
+            .map((id) => id.slice(1, -1))
+            .join("");
+        // P(no '-' in ~2.5k draws) ≈ (63/64)^2530, effectively zero.
+        assert.match(middle, /-/);
+        assert.match(middle, /_/);
+    });
+
+    it("works at the minimum size", () => {
+        for (let i = 0; i < 500; i++) {
+            const [id] = generateNanoIds({
+                size: NANOID_MIN_SIZE,
+                safeEnds: true,
+            });
+            assert.match(id, /^[A-Za-z0-9]{2}$/);
+        }
+    });
+
+    it("leaves alphabets without '-' or '_' unchanged", () => {
+        const [id] = generateNanoIds({ alphabet: "hex", safeEnds: true });
+        assert.match(id, /^[0-9a-f]{21}$/);
+    });
+
+    it("is available on generateNanoId", () => {
+        assert.match(generateNanoId(10, "url", true), /^[A-Za-z0-9].{8}[A-Za-z0-9]$/);
+    });
+
+    it("rejects a non-boolean value", () => {
+        assert.throws(
+            // @ts-expect-error — deliberately invalid input.
+            () => generateNanoIds({ safeEnds: "yes" }),
+            /safeEnds must be true or false/,
+        );
+    });
+});
+
 describe("nanoIdEntropyBits", () => {
     it("computes size * log2(alphabet length)", () => {
         assert.equal(nanoIdEntropyBits(), 126);
         assert.equal(nanoIdEntropyBits(8, "hex"), 32);
+    });
+
+    it("accounts for the smaller edge alphabet with safeEnds", () => {
+        // 2 * log2(62) + 19 * log2(64) ≈ 125.91
+        const bits = nanoIdEntropyBits(21, "url", true);
+        assert.ok(Math.abs(bits - (2 * Math.log2(62) + 19 * 6)) < 1e-9);
+        assert.equal(nanoIdEntropyBits(8, "hex", true), 32);
     });
 });

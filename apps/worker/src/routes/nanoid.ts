@@ -6,10 +6,12 @@
  * previously issued identifier.
  *
  * Query parameters (all optional):
- * - `count`    1..10 (default `1`)
- * - `size`     2..255 characters (default `21`)
- * - `alphabet` one of `url` (default), `alphanumeric`, `lowercase`,
- *              `numbers`, `hex`, `nolookalikes`
+ * - `count`     1..10 (default `1`)
+ * - `size`      2..255 characters (default `21`)
+ * - `alphabet`  one of `url` (default), `alphanumeric`, `lowercase`,
+ *               `numbers`, `hex`, `nolookalikes`
+ * - `safeEnds`  `true` to keep the first and last characters
+ *               alphanumeric, i.e. never `-` or `_` (default `false`)
  */
 import { Hono } from "hono";
 import {
@@ -19,6 +21,14 @@ import {
 } from "@webtools/core";
 
 const nanoid = new Hono();
+
+/** Parse an optional boolean query flag; `undefined` when absent. */
+function parseFlag(value: string | undefined, name: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  throw new Error(`'${name}' must be true or false.`);
+}
 
 nanoid.get("/", (c) => {
   c.header("Cache-Control", "no-store");
@@ -31,9 +41,10 @@ nanoid.get("/", (c) => {
     const size =
       sizeParam === undefined ? NANOID_DEFAULT_SIZE : Number(sizeParam);
     const count = countParam === undefined ? 1 : Number(countParam);
-    const ids = generateNanoIds({ count, size, alphabet });
+    const safeEnds = parseFlag(c.req.query("safeEnds"), "safeEnds") ?? false;
+    const ids = generateNanoIds({ count, size, alphabet, safeEnds });
     // Same shape as the MCP `generate_nanoid` tool.
-    return c.json({ alphabet, size, count: ids.length, ids });
+    return c.json({ alphabet, size, safeEnds, count: ids.length, ids });
   } catch (e) {
     return c.json(
       { error: e instanceof Error ? e.message : "Invalid request" },

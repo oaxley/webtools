@@ -469,7 +469,21 @@ describe("POST /mcp — generate_nanoid", () => {
     for (const id of payload.ids) expect(id).toMatch(/^[0-9]{12}$/);
   });
 
-  it.each([{ count: 11 }, { size: 1 }, { alphabet: "emoji" }])(
+  it("keeps the ends alphanumeric with safeEnds", async () => {
+    const body = await callGenerateNanoId({ count: 10, safeEnds: true });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload.safeEnds).toBe(true);
+    for (const id of payload.ids) {
+      expect(id).toMatch(/^[A-Za-z0-9][A-Za-z0-9_-]{19}[A-Za-z0-9]$/);
+    }
+  });
+
+  it.each([
+    { count: 11 },
+    { size: 1 },
+    { alphabet: "emoji" },
+    { safeEnds: "yes" },
+  ])(
     "rejects %o",
     async (args) => {
       const body = await callGenerateNanoId(args);

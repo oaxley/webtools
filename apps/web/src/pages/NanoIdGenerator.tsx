@@ -17,12 +17,19 @@ interface Settings {
   alphabet: NanoIdAlphabet
   size: number
   count: number
+  safeEnds: boolean
 }
 
 const DEFAULTS: Settings = {
   alphabet: 'url',
   size: NANOID_DEFAULT_SIZE,
   count: 5,
+  safeEnds: false,
+}
+
+/** Alphabets containing '-' or '_', for which `safeEnds` matters. */
+function hasUnsafeEdgeChars(alphabet: NanoIdAlphabet): boolean {
+  return /[-_]/.test(NANOID_ALPHABETS[alphabet])
 }
 
 const ALPHABET_LABELS: Record<NanoIdAlphabet, string> = {
@@ -60,8 +67,12 @@ function formatFromLog10(log10: number): string {
  * How many IDs can be generated before the chance of a duplicate
  * reaches 1% (birthday bound: n ≈ sqrt(2 · N · ln(1 / (1 − p)))).
  */
-function collisionHint(size: number, alphabet: NanoIdAlphabet): string {
-  const bits = nanoIdEntropyBits(size, alphabet)
+function collisionHint(
+  size: number,
+  alphabet: NanoIdAlphabet,
+  safeEnds: boolean,
+): string {
+  const bits = nanoIdEntropyBits(size, alphabet, safeEnds)
   const log10 =
     0.5 * Math.log10(2 * Math.log(1 / 0.99)) + (bits / 2) * Math.log10(2)
   return (
@@ -162,6 +173,19 @@ function NanoIdGenerator() {
           </select>
         </label>
 
+        <label
+          className="nanoid-check"
+          title="Keep the first and last characters alphanumeric, never '-' or '_'"
+        >
+          <input
+            type="checkbox"
+            checked={settings.safeEnds}
+            disabled={!hasUnsafeEdgeChars(settings.alphabet)}
+            onChange={(e) => update({ safeEnds: e.target.checked })}
+          />
+          Safe ends
+        </label>
+
         <button type="submit" className="nanoid-generate" disabled={!sizeValid}>
           Generate
         </button>
@@ -169,7 +193,10 @@ function NanoIdGenerator() {
 
       <p className="nanoid-hint" role={sizeValid ? undefined : 'alert'}>
         {sizeValid
-          ? collisionHint(settings.size, settings.alphabet)
+          ? collisionHint(settings.size, settings.alphabet, settings.safeEnds) +
+            (settings.safeEnds && hasUnsafeEdgeChars(settings.alphabet)
+              ? " Safe ends: never starts or ends with '-' or '_'."
+              : '')
           : `Size must be a whole number between ${NANOID_MIN_SIZE} and ${NANOID_MAX_SIZE}.`}
       </p>
 
