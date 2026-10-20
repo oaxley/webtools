@@ -108,6 +108,16 @@ export const TOOLS: Tool[] = [
     available: true,
   },
   {
+    id: 'nanoid',
+    name: 'NanoID Generator',
+    description: 'Generate compact, URL-friendly random identifiers.',
+    tags: ['nanoid', 'id', 'random', 'url-safe', 'identifier', 'short'],
+    path: '/nanoid',
+    monogram: 'NID',
+    accent: '#0d9488',
+    available: true,
+  },
+  {
     id: 'password',
     name: 'Password Generator',
     description: 'Create strong random passwords with custom rules.',
