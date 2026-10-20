@@ -26,6 +26,9 @@
  * - `generate_uuid(version?, count?, uppercase?)` — mirrors
  *   `/api/v1/uuid`. Returns `{ version, count, uuids }` with 1..10 v4 or
  *   v7 (default) UUIDs.
+ * - `generate_nanoid(count?, size?, alphabet?)` — mirrors
+ *   `/api/v1/nanoid`. Returns `{ alphabet, size, count, ids }` with 1..10
+ *   NanoIDs (default: 21 characters, `url` alphabet).
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -36,9 +39,16 @@ import {
   calculateCIDR,
   decodeJWT,
   decodeX509,
+  generateNanoIds,
   generateUUIDs,
   isRoutable,
+  MAX_NANOID_COUNT,
   MAX_UUID_COUNT,
+  NANOID_ALPHABET_NAMES,
+  NANOID_DEFAULT_SIZE,
+  NANOID_MAX_SIZE,
+  NANOID_MIN_SIZE,
+  type NanoIdAlphabet,
   toJwtJsonSummary,
   toX509ApiResponse,
 } from "@webtools/core";
@@ -195,6 +205,51 @@ function buildServer(): McpServer {
         return jsonResult({ version, count: uuids.length, uuids });
       } catch (e) {
         return errorResult(e, "Invalid UUID request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_nanoid",
+    {
+      title: "NanoID Generator",
+      description:
+        `Generate 1 to ${MAX_NANOID_COUNT} NanoIDs: compact, URL-friendly random identifiers. ` +
+        `Default is ${NANOID_DEFAULT_SIZE} characters from the URL-safe alphabet (A-Za-z0-9_-), ` +
+        "about as collision-resistant as a v4 UUID.",
+      inputSchema: {
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_NANOID_COUNT)
+          .optional()
+          .describe(`How many IDs to generate, 1 to ${MAX_NANOID_COUNT} (default 1)`),
+        size: z
+          .number()
+          .int()
+          .min(NANOID_MIN_SIZE)
+          .max(NANOID_MAX_SIZE)
+          .optional()
+          .describe(
+            `ID length in characters, ${NANOID_MIN_SIZE} to ${NANOID_MAX_SIZE} (default ${NANOID_DEFAULT_SIZE})`,
+          ),
+        alphabet: z
+          .enum(NANOID_ALPHABET_NAMES as [NanoIdAlphabet, ...NanoIdAlphabet[]])
+          .optional()
+          .describe(
+            "Named alphabet: url (A-Za-z0-9_-, default), alphanumeric, lowercase (a-z0-9), " +
+              "numbers, hex, or nolookalikes (alphanumeric without 0 O 1 l I)",
+          ),
+      },
+    },
+    ({ count = 1, size = NANOID_DEFAULT_SIZE, alphabet = "url" }) => {
+      try {
+        // Same shape as GET /api/v1/nanoid.
+        const ids = generateNanoIds({ count, size, alphabet });
+        return jsonResult({ alphabet, size, count: ids.length, ids });
+      } catch (e) {
+        return errorResult(e, "Invalid NanoID request");
       }
     },
   );

@@ -71,8 +71,13 @@ describe("POST /mcp", () => {
       "calculate_cidr",
       "decode_jwt",
       "decode_x509",
+      "generate_nanoid",
       "generate_uuid",
     ]);
+    expect(byName.generate_nanoid.description).toMatch(/NanoID/);
+    expect(byName.generate_nanoid.inputSchema.properties).toHaveProperty(
+      "alphabet",
+    );
     expect(byName.generate_uuid.description).toMatch(/UUID/);
     expect(byName.generate_uuid.inputSchema.properties).toHaveProperty("count");
     expect(byName.calculate_cidr.description).toMatch(/IPv4 CIDR/);
@@ -430,6 +435,48 @@ describe("POST /mcp — generate_uuid", () => {
     const failed = body.error !== undefined || body.result?.isError === true;
     expect(failed).toBe(true);
   });
+});
+
+async function callGenerateNanoId(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 40,
+    method: "tools/call",
+    params: { name: "generate_nanoid", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — generate_nanoid", () => {
+  it("defaults to a single 21-character url ID", async () => {
+    const body = await callGenerateNanoId({});
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ alphabet: "url", size: 21, count: 1 });
+    expect(payload.ids).toHaveLength(1);
+    expect(payload.ids[0]).toMatch(/^[A-Za-z0-9_-]{21}$/);
+  });
+
+  it("generates the requested batch", async () => {
+    const body = await callGenerateNanoId({
+      count: 10,
+      size: 12,
+      alphabet: "numbers",
+    });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ alphabet: "numbers", size: 12, count: 10 });
+    for (const id of payload.ids) expect(id).toMatch(/^[0-9]{12}$/);
+  });
+
+  it.each([{ count: 11 }, { size: 1 }, { alphabet: "emoji" }])(
+    "rejects %o",
+    async (args) => {
+      const body = await callGenerateNanoId(args);
+      const failed = body.error !== undefined || body.result?.isError === true;
+      expect(failed).toBe(true);
+    },
+  );
 });
 
 describe("Unsupported methods on /mcp", () => {
