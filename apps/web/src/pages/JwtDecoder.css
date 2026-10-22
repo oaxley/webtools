@@ -1,27 +1,6 @@
 /* JWT-decoder specific styles. Page shell: components/ToolPage.css;
    shared decoder styles: decoderShared.css. */
 
-/* ---- Signature + notes -------------------------------------------------- */
-
-.signature-value {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-h);
-  background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  overflow-x: auto;
-  word-break: break-all;
-}
-
-.signature-note {
-  font-size: 13px;
-  color: var(--text);
-  margin: 8px 0 0;
-}
-
 /* ---- JWT-specific badges ----------------------------------------------- */
 
 .alg-badge {

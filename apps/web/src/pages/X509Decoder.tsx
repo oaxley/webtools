@@ -11,6 +11,8 @@ import {
   type X509FieldSpec,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { Examples, ToolPage } from '../components/ToolPage'
+import { clearFragment, readFragmentParam } from '../urlParams'
 import {
   DecodedBlock,
   DefinitionLink,
@@ -82,16 +84,15 @@ interface Fingerprints {
 }
 
 function X509Decoder() {
-  const [input, setInput] = useState(SAMPLE_RSA)
+  // Like the JWT decoder: never written to the URL, but a certificate can
+  // be handed over once via the fragment (/x509#cert=<pem or base64>).
+  const [input, setInput] = useState(() => readFragmentParam('cert') ?? SAMPLE_RSA)
+  useEffect(clearFragment, [])
   const [fingerprintState, setFingerprintState] = useState<
     | { kind: 'idle' }
     | { kind: 'ready'; fingerprints: Fingerprints; forDer: Uint8Array }
     | { kind: 'error'; error: string; forDer: Uint8Array }
   >({ kind: 'idle' })
-
-  useEffect(() => {
-    document.title = 'X.509 Certificate Decoder — WebTools'
-  }, [])
 
   const outcome: Outcome = useMemo(() => {
     try {
@@ -181,13 +182,11 @@ function X509Decoder() {
   const customExts = outcome.ok ? customX509Extensions(outcome.decoded) : []
 
   return (
-    <main className="tool-page tool-page-wide">
-      <h1>X.509 Certificate Decoder</h1>
-      <p className="tool-lede">
-        Paste an X.509 certificate as PEM or raw base64 DER to inspect its
-        fields and extensions.
-      </p>
-
+    <ToolPage
+      toolId="x509"
+      wide
+      lede="Paste an X.509 certificate as PEM or raw base64 DER to inspect its fields, extensions and fingerprints. Everything is parsed in your browser."
+    >
       <form
         className="decoder-form"
         onSubmit={(e) => e.preventDefault()}
@@ -204,32 +203,13 @@ function X509Decoder() {
         />
       </form>
 
-      <p className="examples">
-        Try:{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput(SAMPLE_RSA)}
-        >
-          RSA server sample
-        </button>{' '}
-        ·{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput(SAMPLE_CA)}
-        >
-          Self-signed CA sample
-        </button>{' '}
-        ·{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput('')}
-        >
-          Clear
-        </button>
-      </p>
+      <Examples
+        items={[
+          { label: 'RSA server sample', onClick: () => setInput(SAMPLE_RSA) },
+          { label: 'Self-signed CA sample', onClick: () => setInput(SAMPLE_CA) },
+          { label: 'Clear', onClick: () => setInput('') },
+        ]}
+      />
 
       {!outcome.ok && input.trim() !== '' && (
         <p className="error-box" role="alert">
@@ -404,7 +384,7 @@ function X509Decoder() {
           ))}
         </dl>
       </section>
-    </main>
+    </ToolPage>
   )
 }
 

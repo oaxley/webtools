@@ -158,6 +158,27 @@
   opacity: 0.75;
 }
 
+/* ---- Signature ------------------------------------------------------- */
+
+.signature-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-h);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  overflow-x: auto;
+  word-break: break-all;
+}
+
+.signature-note {
+  font-size: 13px;
+  color: var(--text);
+  margin: 8px 0 0;
+}
+
 /* ---- Flash animations -------------------------------------------------- */
 
 .claim-flash {
