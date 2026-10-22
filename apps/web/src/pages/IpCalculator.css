@@ -314,7 +314,7 @@
   }
 }
 
-.badge {
+.ip-badge {
   display: inline-block;
   font-weight: 600;
   font-size: 14px;
@@ -322,22 +322,22 @@
   border-radius: 999px;
 }
 
-.badge-yes {
+.ip-badge-yes {
   color: #15803d;
   background: rgba(34, 197, 94, 0.15);
 }
 
-.badge-no {
+.ip-badge-no {
   color: #b91c1c;
   background: rgba(248, 113, 113, 0.15);
 }
 
-@media (prefers-color-scheme: dark) {
-  .badge-yes {
+[data-theme='dark'] {
+  .ip-badge-yes {
     color: #4ade80;
   }
 
-  .badge-no {
+  .ip-badge-no {
     color: #f87171;
   }
 }

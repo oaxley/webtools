@@ -133,7 +133,7 @@
   opacity: 0.75;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .json-string {
     color: #6ee7b7;
   }
@@ -410,7 +410,7 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, #dc2626 20%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .claim-dot-present {
     background: #4ade80;
     box-shadow: 0 0 0 2px color-mix(in srgb, #4ade80 20%, transparent);
@@ -462,7 +462,7 @@
   background: rgba(234, 179, 8, 0.2);
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .exp-badge-active {
     color: #4ade80;
   }

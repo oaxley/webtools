@@ -1,0 +1,144 @@
+/*
+ * WebTools design tokens.
+ *
+ * Every colour, font, radius and shadow the UI uses is defined here.
+ * Light values sit on :root; dark values on [data-theme='dark'], which
+ * is set on <html> by the theme script in index.html (see src/theme.ts).
+ * Never key styles off `prefers-color-scheme` directly — use the
+ * `[data-theme='dark']` selector so the header switch is honoured.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Brand: purple scale ------------------------------------------ */
+  --purple-50: #faf5ff;
+  --purple-100: #f3e8ff;
+  --purple-200: #e9d5ff;
+  --purple-300: #d8b4fe;
+  --purple-400: #c084fc;
+  --purple-500: #aa3bff;
+  --purple-600: #9322e8;
+  --purple-700: #7a16c4;
+  --purple-800: #62149c;
+  --purple-900: #4c1278;
+
+  /* ---- Neutrals (slightly violet-tinted greys) ---------------------- */
+  --gray-0: #ffffff;
+  --gray-25: #fbfbfd;
+  --gray-50: #f6f5f9;
+  --gray-100: #eeedf3;
+  --gray-200: #e3e1ea;
+  --gray-300: #cfccd9;
+  --gray-400: #a29db2;
+  --gray-500: #6e6880;
+  --gray-600: #524c63;
+  --gray-700: #3a3549;
+  --gray-800: #232030;
+  --gray-850: #1b1925;
+  --gray-900: #14121c;
+  --gray-950: #0d0c13;
+
+  /* ---- Semantic colours --------------------------------------------- */
+  --bg: var(--gray-0);
+  --surface: var(--gray-25);
+  --surface-2: var(--gray-50);
+  --surface-sunken: var(--gray-50);
+  --border: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --text: var(--gray-500);
+  --text-h: var(--gray-900);
+  --text-soft: var(--gray-400);
+
+  --accent: var(--purple-600);
+  --accent-strong: var(--purple-700);
+  --accent-fg: #ffffff;
+  --accent-bg: color-mix(in srgb, var(--purple-500) 10%, transparent);
+  --accent-border: color-mix(in srgb, var(--purple-500) 45%, transparent);
+
+  --success: #15803d;
+  --success-bg: color-mix(in srgb, #22c55e 16%, transparent);
+  --danger: #b91c1c;
+  --danger-bg: color-mix(in srgb, #f87171 18%, transparent);
+  --warning: #a16207;
+  --warning-bg: color-mix(in srgb, #eab308 18%, transparent);
+
+  --code-bg: var(--gray-50);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--purple-500) 35%, transparent);
+
+  /* JSON viewer / syntax colours (light) */
+  --syntax-string: #047857;
+  --syntax-number: #0369a1;
+  --syntax-keyword: #a21caf;
+
+  /* ---- "Ink" band: dark hero sections, same in both themes ---------- */
+  --ink-bg: #120f1a;
+  --ink-text: #f5f3ff;
+  --ink-muted: #b4adc6;
+  --ink-accent: var(--purple-400);
+  --ink-border: rgba(255, 255, 255, 0.14);
+  --ink-surface: rgba(255, 255, 255, 0.06);
+
+  /* ---- Elevation ---------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(20, 18, 28, 0.06);
+  --shadow:
+    0 10px 15px -3px rgba(20, 18, 28, 0.08), 0 4px 6px -2px rgba(20, 18, 28, 0.04);
+  --shadow-lg: 0 24px 48px -12px rgba(20, 18, 28, 0.18);
+
+  /* ---- Shape -------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ---- Layout ------------------------------------------------------- */
+  --content-max: 1120px;
+  --header-h: 64px;
+
+  /* ---- Typography --------------------------------------------------- */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  /* Legacy aliases (pre-redesign names still used by some tool pages). */
+  --sans: var(--font-sans);
+  --heading: var(--font-sans);
+  --mono: var(--font-mono);
+  --social-bg: var(--surface-2);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: var(--gray-900);
+  --surface: var(--gray-850);
+  --surface-2: var(--gray-800);
+  --surface-sunken: var(--gray-950);
+  --border: #2c2839;
+  --border-strong: #3d384d;
+  --text: #a9a3b9;
+  --text-h: #f4f2f8;
+  --text-soft: #767088;
+
+  --accent: var(--purple-400);
+  --accent-strong: var(--purple-300);
+  --accent-fg: #160a22;
+  --accent-bg: color-mix(in srgb, var(--purple-400) 15%, transparent);
+  --accent-border: color-mix(in srgb, var(--purple-400) 50%, transparent);
+
+  --success: #4ade80;
+  --danger: #fca5a5;
+  --warning: #fcd34d;
+
+  --code-bg: var(--gray-850);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--purple-400) 45%, transparent);
+
+  --syntax-string: #6ee7b7;
+  --syntax-number: #7dd3fc;
+  --syntax-keyword: #f0abfc;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
+}

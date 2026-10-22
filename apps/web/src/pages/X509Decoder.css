@@ -133,7 +133,7 @@
   vertical-align: baseline;
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .mandatory-badge {
     color: #4ade80;
   }

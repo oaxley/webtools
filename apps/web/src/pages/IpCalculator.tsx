@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useTheme } from '../theme'
 import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
 import './IpCalculator.css'
@@ -207,9 +208,9 @@ function MobileTable({
       anchor: 'field-routable',
       label: 'Routable',
       value: routable ? (
-        <span className="badge badge-yes">Yes</span>
+        <span className="ip-badge ip-badge-yes">Yes</span>
       ) : (
-        <span className="badge badge-no">No</span>
+        <span className="ip-badge ip-badge-no">No</span>
       ),
     },
   ]
@@ -298,6 +299,8 @@ function IpCalculator() {
   const initial = searchParams.get('cidr') ?? DEFAULT_CIDR
   const [input, setInput] = useState(initial)
   const [submitted, setSubmitted] = useState(initial)
+  // The canvas reads colours from CSS variables, so redraw on theme change.
+  const { theme } = useTheme()
   const [netEdit, setNetEdit] = useState(() => splitCidr(initial)[0])
   const [prefixEdit, setPrefixEdit] = useState(() => splitCidr(initial)[1])
   const [draftError, setDraftError] = useState<string | null>(null)
@@ -426,7 +429,7 @@ function IpCalculator() {
     const border = cssVar('--border', '#d4d4d8')
     const text = cssVar('--text-h', '#111827')
     const muted = cssVar('--text', '#6b7280')
-    const panel = cssVar('--social-bg', '#f4f4f5')
+    const panel = cssVar('--surface-2', '#f6f5f9')
     const routableColor = '#16a34a'
     const nonRoutableColor = '#dc2626'
 
@@ -658,7 +661,7 @@ function IpCalculator() {
         height: g.height,
       })),
     ]
-  }, [outcome, canvasWidth, subnetCenterX, prefixCenterX])
+  }, [outcome, canvasWidth, subnetCenterX, prefixCenterX, theme])
 
   // Map a mouse event on the canvas to a hit region, if any.
   const hitTest = (ev: React.MouseEvent<HTMLCanvasElement>): HitRegion | null => {

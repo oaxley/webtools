@@ -93,7 +93,7 @@
   background: rgba(248, 113, 113, 0.18);
 }
 
-@media (prefers-color-scheme: dark) {
+[data-theme='dark'] {
   .alg-badge-danger {
     color: #fca5a5;
   }
