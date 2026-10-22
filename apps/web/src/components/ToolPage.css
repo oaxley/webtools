@@ -289,6 +289,11 @@ select.tool-input {
     margin: 0;
     accent-color: var(--accent);
   }
+
+  &:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .tool-controls-actions {
