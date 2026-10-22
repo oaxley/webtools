@@ -1,5 +1,5 @@
-import { TOOLS } from '../tools'
-import type { PostMeta } from './types'
+import { TOOLS } from '../tools.ts'
+import type { PostMeta } from './types.ts'
 
 const FALLBACK_ACCENT = '#7c3aed'
 
