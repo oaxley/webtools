@@ -41,3 +41,22 @@ export function writeParams<T extends object>(
   }
   return next
 }
+
+/**
+ * Read `key` from the URL fragment (`#key=value`). For sensitive inputs
+ * (tokens, certificates): fragments are never sent to the server nor in
+ * Referer headers. Pair with `clearFragment()` once the value is used,
+ * so it doesn't stay in the address bar or in copied links.
+ */
+export function readFragmentParam(key: string): string | undefined {
+  if (typeof window === 'undefined' || !window.location.hash) return undefined
+  const value = new URLSearchParams(window.location.hash.slice(1)).get(key)
+  return value === null || value.trim() === '' ? undefined : value
+}
+
+/** Drop the fragment from the address bar without a navigation. */
+export function clearFragment(): void {
+  if (!window.location.hash) return
+  const { pathname, search } = window.location
+  window.history.replaceState(window.history.state, '', pathname + search)
+}

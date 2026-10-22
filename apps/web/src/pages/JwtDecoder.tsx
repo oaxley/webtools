@@ -8,6 +8,8 @@ import {
   type JwtDecoded,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { Examples, ToolPage } from '../components/ToolPage'
+import { clearFragment, readFragmentParam } from '../urlParams'
 import { DecodedBlock, DefinitionLink, RfcLink } from './decoderShared'
 import { flashInJson, jumpToFieldGuide } from './decoderUtils'
 import './JwtDecoder.css'
@@ -52,12 +54,11 @@ type Outcome =
 function JwtDecoder() {
   // Tokens are intentionally NOT mirrored to the URL: they often carry
   // real credentials or PII, and the URL would leak into history,
-  // referer headers, server logs, and shared screenshots.
-  const [input, setInput] = useState(SAMPLE)
-
-  useEffect(() => {
-    document.title = 'JWT Decoder — WebTools'
-  }, [])
+  // referer headers, server logs, and shared screenshots. A token can be
+  // handed over once via the fragment (`/jwt#token=…`, never sent to a
+  // server); it is removed from the address bar as soon as it's read.
+  const [input, setInput] = useState(() => readFragmentParam('token') ?? SAMPLE)
+  useEffect(clearFragment, [])
 
   const outcome: Outcome = useMemo(() => {
     try {
@@ -91,12 +92,11 @@ function JwtDecoder() {
   const customs = outcome.ok ? customPayloadClaims(outcome.decoded) : []
 
   return (
-    <main className="tool-page tool-page-wide">
-      <h1>JWT Decoder</h1>
-      <p className="tool-lede">
-        Paste a JWT to inspect its header, payload and signature. 
-      </p>
-
+    <ToolPage
+      toolId="jwt"
+      wide
+      lede="Paste a JWT to inspect its header, payload and signature. Decoding happens in your browser; the token is never sent anywhere."
+    >
       <form
         className="decoder-form"
         onSubmit={(e) => {
@@ -115,32 +115,13 @@ function JwtDecoder() {
         />
       </form>
 
-      <p className="examples">
-        Try:{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput(SAMPLE)}
-        >
-          HS256 sample
-        </button>{' '}
-        ·{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput(SAMPLE_OIDC)}
-        >
-          OIDC sample
-        </button>{' '}
-        ·{' '}
-        <button
-          type="button"
-          className="example-link"
-          onClick={() => setInput('')}
-        >
-          Clear
-        </button>
-      </p>
+      <Examples
+        items={[
+          { label: 'HS256 sample', onClick: () => setInput(SAMPLE) },
+          { label: 'OIDC sample', onClick: () => setInput(SAMPLE_OIDC) },
+          { label: 'Clear', onClick: () => setInput('') },
+        ]}
+      />
 
       {!outcome.ok && input.trim() !== '' && (
         <p className="error-box" role="alert">
@@ -305,7 +286,7 @@ function JwtDecoder() {
           ))}
         </dl>
       </section>
-    </main>
+    </ToolPage>
   )
 }
 

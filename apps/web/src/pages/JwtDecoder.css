@@ -1,15 +1,16 @@
-/* JWT-decoder specific styles. Shared decoder styles live in
-   `decoderShared.css` and are imported from that module. */
+/* JWT-decoder specific styles. Page shell: components/ToolPage.css;
+   shared decoder styles: decoderShared.css. */
 
 /* ---- Signature + notes -------------------------------------------------- */
 
 .signature-value {
   display: block;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 13px;
   color: var(--text-h);
-  background: var(--social-bg);
-  border-radius: 10px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 12px 14px;
   overflow-x: auto;
   word-break: break-all;
@@ -24,23 +25,17 @@
 /* ---- JWT-specific badges ----------------------------------------------- */
 
 .alg-badge {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 2px 8px;
-  border-radius: 999px;
-  color: var(--text-h);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .alg-badge-danger {
-  color: #b91c1c;
-  background: rgba(248, 113, 113, 0.18);
-}
-
-[data-theme='dark'] {
-  .alg-badge-danger {
-    color: #fca5a5;
-  }
+  color: var(--danger);
+  background: var(--danger-bg);
 }
