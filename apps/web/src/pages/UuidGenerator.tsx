@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { generateUUIDs, MAX_UUID_COUNT, type UuidVersion } from '@webtools/core'
-import CopyJsonButton from '../components/CopyJsonButton'
-import './UuidGenerator.css'
+import { IdResults } from '../components/IdResults'
+import { SegmentedControl, ToolPage } from '../components/ToolPage'
+import { readBool, readInt, writeParams } from '../urlParams'
 
 interface Settings {
   version: UuidVersion
@@ -22,67 +24,66 @@ const VERSION_HINTS: Record<UuidVersion, string> = {
   4: 'Fully random: reveals nothing about when it was created.',
 }
 
+/** Settings from `?version=4&count=3&uppercase=1&hyphens=0`, else defaults. */
+function settingsFromParams(params: URLSearchParams): Settings {
+  const version = params.get('version')
+  return {
+    version: version === '4' ? 4 : version === '7' ? 7 : DEFAULTS.version,
+    count: readInt(params, 'count', 1, MAX_UUID_COUNT) ?? DEFAULTS.count,
+    uppercase: readBool(params, 'uppercase') ?? DEFAULTS.uppercase,
+    hyphens: readBool(params, 'hyphens') ?? DEFAULTS.hyphens,
+  }
+}
+
 function UuidGenerator() {
-  const [settings, setSettings] = useState<Settings>(DEFAULTS)
+  const [params, setParams] = useSearchParams()
+  const [settings, setSettings] = useState<Settings>(() => settingsFromParams(params))
   // Generation runs entirely in the browser via @webtools/core — no
   // network round-trip, nothing logged server-side.
-  const [uuids, setUuids] = useState<string[]>(() => generateUUIDs(DEFAULTS))
+  const [uuids, setUuids] = useState<string[]>(() => generateUUIDs(settings))
 
-  useEffect(() => {
-    document.title = 'UUID Generator — WebTools'
-  }, [])
+  const regenerate = useCallback(
+    (next: Settings) => {
+      setSettings(next)
+      setUuids(generateUUIDs(next))
+      setParams((prev) => writeParams(prev, next, DEFAULTS), { replace: true })
+    },
+    [setParams],
+  )
 
-  const regenerate = useCallback((next: Settings) => {
-    setSettings(next)
-    setUuids(generateUUIDs(next))
-  }, [])
-
-  const update = (patch: Partial<Settings>) =>
-    regenerate({ ...settings, ...patch })
+  const update = (patch: Partial<Settings>) => regenerate({ ...settings, ...patch })
 
   const counts = Array.from({ length: MAX_UUID_COUNT }, (_, i) => i + 1)
 
   return (
-    <main className="tool-page uuid-page">
-      <h1>UUID Generator</h1>
-      <p className="tool-lede">
-        Generate RFC 9562 version 7 or version 4 UUIDs, up to{' '}
-        {MAX_UUID_COUNT} at a time.
-      </p>
-
+    <ToolPage
+      toolId="uuid"
+      lede={`Generate RFC 9562 version 7 or version 4 UUIDs, up to ${MAX_UUID_COUNT} at a time.`}
+    >
       <form
-        className="uuid-controls"
+        className="tool-controls"
         onSubmit={(e) => {
           e.preventDefault()
           regenerate(settings)
         }}
       >
-        <div
-          className="uuid-version-toggle"
-          role="radiogroup"
-          aria-label="UUID version"
-        >
-          {([7, 4] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={settings.version === v}
-              className={
-                settings.version === v
-                  ? 'uuid-version uuid-version-active'
-                  : 'uuid-version'
-              }
-              onClick={() => update({ version: v })}
-            >
-              v{v}
-            </button>
-          ))}
+        <div className="tool-field">
+          <span>Version</span>
+          <SegmentedControl
+            ariaLabel="UUID version"
+            value={settings.version}
+            options={[
+              { value: 7, label: 'v7' },
+              { value: 4, label: 'v4' },
+            ]}
+            onChange={(version) => update({ version })}
+          />
         </div>
 
-        <label className="uuid-field">
+        <label className="tool-field">
           Count
           <select
+            className="tool-input"
             value={settings.count}
             onChange={(e) => update({ count: Number(e.target.value) })}
           >
@@ -94,7 +95,7 @@ function UuidGenerator() {
           </select>
         </label>
 
-        <label className="uuid-check">
+        <label className="tool-check">
           <input
             type="checkbox"
             checked={settings.uppercase}
@@ -103,7 +104,7 @@ function UuidGenerator() {
           Uppercase
         </label>
 
-        <label className="uuid-check">
+        <label className="tool-check">
           <input
             type="checkbox"
             checked={settings.hyphens}
@@ -112,40 +113,21 @@ function UuidGenerator() {
           Hyphens
         </label>
 
-        <button type="submit" className="uuid-generate">
-          Generate
-        </button>
+        <div className="tool-controls-actions">
+          <button type="submit" className="button button-primary">
+            Generate new
+          </button>
+        </div>
       </form>
 
-      <p className="uuid-hint">{VERSION_HINTS[settings.version]}</p>
+      <p className="tool-hint">{VERSION_HINTS[settings.version]}</p>
 
-      <section className="uuid-results" aria-label="Generated UUIDs">
-        <div className="uuid-results-header">
-          <h2>
-            {uuids.length} UUID{uuids.length > 1 ? 's' : ''} (v
-            {settings.version})
-          </h2>
-          <CopyJsonButton
-            text={uuids.join('\n')}
-            label="Copy all"
-            size="sm"
-          />
-        </div>
-        <ol className="uuid-list">
-          {uuids.map((id) => (
-            <li key={id} className="uuid-row">
-              <code className="uuid-value">{id}</code>
-              <CopyJsonButton
-                text={id}
-                label="Copy"
-                size="sm"
-                ariaLabel={`Copy ${id}`}
-              />
-            </li>
-          ))}
-        </ol>
-      </section>
-    </main>
+      <IdResults
+        ids={uuids}
+        title={`${uuids.length} UUID${uuids.length > 1 ? 's' : ''} (v${settings.version})`}
+        ariaLabel="Generated UUIDs"
+      />
+    </ToolPage>
   )
 }
 

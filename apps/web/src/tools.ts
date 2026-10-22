@@ -21,6 +21,10 @@ export interface Tool {
   accent: string;
   /** Tools that are not ready yet render with a "Soon" badge. */
   available: boolean;
+  /** Matching REST endpoint (relative to the API origin), if any. */
+  api?: { method: 'GET' | 'POST'; path: string };
+  /** Matching MCP tool name, if any. */
+  mcp?: string;
 }
 
 export interface NavItem {
@@ -47,6 +51,8 @@ export const TOOLS: Tool[] = [
     monogram: 'IP',
     accent: '#2563eb',
     available: true,
+    api: { method: 'GET', path: '/api/v1/ip' },
+    mcp: 'calculate_cidr',
   },
   {
     id: 'jwt',
@@ -58,6 +64,8 @@ export const TOOLS: Tool[] = [
     monogram: 'JWT',
     accent: '#7c3aed',
     available: true,
+    api: { method: 'POST', path: '/api/v1/jwt' },
+    mcp: 'decode_jwt',
   },
   {
     id: 'dns',
@@ -90,6 +98,8 @@ export const TOOLS: Tool[] = [
     monogram: 'X509',
     accent: '#059669',
     available: true,
+    api: { method: 'POST', path: '/api/v1/x509' },
+    mcp: 'decode_x509',
   },
   {
     id: 'json',
@@ -123,6 +133,8 @@ export const TOOLS: Tool[] = [
     monogram: 'ID',
     accent: '#0891b2',
     available: true,
+    api: { method: 'GET', path: '/api/v1/uuid' },
+    mcp: 'generate_uuid',
   },
   {
     id: 'nanoid',
@@ -134,6 +146,8 @@ export const TOOLS: Tool[] = [
     monogram: 'NID',
     accent: '#0d9488',
     available: true,
+    api: { method: 'GET', path: '/api/v1/nanoid' },
+    mcp: 'generate_nanoid',
   },
   {
     id: 'password',
@@ -158,3 +172,10 @@ export const TOOLS: Tool[] = [
     available: false,
   },
 ];
+
+/** Look up a tool by id; throws on typos so they surface in development. */
+export function findTool(id: string): Tool {
+  const tool = TOOLS.find((t) => t.id === id);
+  if (!tool) throw new Error(`Unknown tool id '${id}'`);
+  return tool;
+}

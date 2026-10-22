@@ -1,27 +1,6 @@
 /* NanoID generator page. Base `.tool-page` / `.tool-lede` rules mirror
    the other tool pages. */
 
-.tool-page {
-  flex-grow: 1;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 64px 24px;
-  box-sizing: border-box;
-
-  @media (max-width: 640px) {
-    padding: 40px 16px;
-  }
-}
-
-.tool-page h1 {
-  margin: 0 0 8px;
-}
-
-.tool-lede {
-  margin: 0 0 28px;
-}
-
 /* ---- Controls ----------------------------------------------------------- */
 
 .nanoid-controls {

@@ -1,60 +1,6 @@
 /* JWT-decoder specific styles. Shared decoder styles live in
    `decoderShared.css` and are imported from that module. */
 
-.tool-page {
-  flex-grow: 1;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 64px 24px;
-  box-sizing: border-box;
-
-  @media (max-width: 640px) {
-    padding: 40px 16px;
-  }
-}
-
-.tool-page-wide {
-  max-width: 1080px;
-}
-
-.tool-page h1 {
-  margin: 0 0 8px;
-}
-
-.tool-lede {
-  margin: 0 0 28px;
-}
-
-.examples {
-  font-size: 14px;
-  margin: 0 0 24px;
-}
-
-.example-link {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--accent);
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-.error-box {
-  border: 1px solid #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--text-h);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin: 0 0 20px;
-}
-
 /* ---- Signature + notes -------------------------------------------------- */
 
 .signature-value {
