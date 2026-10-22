@@ -1,3 +1,6 @@
 node_modules
 .codegraph
 tmp
+
+# Local wrangler state (pages dev)
+.wrangler

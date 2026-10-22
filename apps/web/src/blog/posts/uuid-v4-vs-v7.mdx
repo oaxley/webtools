@@ -1,0 +1,151 @@
+---
+title: "UUID v4 vs v7: why time-ordered IDs matter for your database"
+description: "Random UUIDs scatter inserts all over your indexes. Version 7 puts a timestamp first so new rows land together. Here's how they differ, and when to still pick v4."
+date: 2026-10-20
+order: 2
+tags: [uuid, database, identifiers]
+tools: [uuid, nanoid]
+---
+
+UUIDs are the default answer to "how do I generate an ID without asking the
+database?" They're 128 bits, can be created anywhere, and collisions are
+practically impossible. For years the advice was simply "use v4."
+
+[RFC 9562](https://www.rfc-editor.org/rfc/rfc9562) (2024) made a newer option
+official: **version 7**, which starts with a timestamp. This guide explains the
+difference, why it matters for databases, and when v4 is still the right call.
+
+## What's inside each version
+
+Both versions are written the same way, as 32 hex digits in an `8-4-4-4-12` pattern.
+The first digit of the third group is the **version**:
+
+```text
+v4: 9f1c2b7e-4d3a-4e8b-a1f0-6c2d9e7b5a13
+                  ^ 4 = random
+v7: 01a15c4c-c8ee-7439-aa40-3bf8e7fa6b21
+                  ^ 7 = time-ordered
+```
+
+What the other bits contain is where they differ:
+
+| | Version 4 | Version 7 |
+|---|---|---|
+| First 48 bits | random | Unix timestamp in **milliseconds** |
+| Remaining bits | random | random (plus a small counter) |
+| Random bits | 122 | 74 |
+| Sorts by creation time | no | **yes** |
+| Reveals creation time | no | **yes**, to the millisecond |
+
+Take the v7 example above. Its first 12 hex digits, `01a15c4cc8ee`, are a
+millisecond timestamp: `1792549898478`, which is **2026-10-21 02:31:38.478 UTC**.
+Anyone holding the ID can read that out.
+
+## Why random keys hurt your database
+
+Most databases store a table's primary key in a **B-tree** index, kept in sorted
+order. Where a new key lands in that tree depends on its value:
+
+- **v4 (random):** each insert lands at a random spot in the index. Over time that
+  means touching pages all over the index, frequent **page splits**, half-empty pages,
+  and a working set that no longer fits in memory once the table grows. Write
+  throughput drops and the index ends up larger than it needs to be.
+- **v7 (time-ordered):** new keys are always larger than the previous ones, so
+  inserts go to the **right-hand edge** of the index, just like an auto-increment
+  integer. Recent rows sit next to each other, which also makes "latest N rows"
+  queries cheaper.
+
+The effect is strongest with clustered indexes (MySQL/InnoDB, SQL Server), where
+the table itself is ordered by primary key, but PostgreSQL B-tree indexes benefit
+too.
+
+<Callout type="tip">
+Store UUIDs as a native 16-byte type (`uuid` in PostgreSQL, `BINARY(16)` in MySQL),
+not as a 36-character string. The ordering benefit of v7 holds either way, but
+strings are more than twice as large and slower to compare.
+</Callout>
+
+### What about IDs created in the same millisecond?
+
+A server can easily create several IDs within one millisecond. The WebTools generator
+follows RFC 9562's "fixed-length counter" method: when the timestamp hasn't
+moved, the 12 bits right after the version digit act as a counter, so
+IDs keep strictly increasing. You can see it in a batch:
+
+```text
+01a15c4c-c8ee-7439-aa40-3bf8e7fa6b21
+01a15c4c-c8ee-743a-9743-67073196e141
+01a15c4c-c8ee-743b-8d8f-1202bd5dadb7
+               ^^^ same millisecond, counter goes 439 → 43a → 43b
+```
+
+The guarantee is per generator (per process). IDs created on two different
+machines in the same millisecond are still unique, but their relative order
+isn't defined.
+
+## When v4 is still the better choice
+
+v7's timestamp is a feature for databases and a leak everywhere else. Prefer v4
+when:
+
+- **The ID is public and timing is sensitive.** A v7 user ID tells anyone when the
+  account was created. A v7 order ID in a URL reveals your order timing.
+- **The ID must be unguessable.** v4 has 122 random bits. v7 has 74, and the timestamp
+  is predictable. Neither is a replacement for a real secret (use a dedicated
+  token for password resets or API keys), but v4 gives an attacker less to work with.
+- **You shard or partition by key.** Random keys spread writes evenly. Time-ordered
+  keys all hit the "newest" shard.
+
+A common pattern is to use v7 as the internal primary key and expose a separate random
+identifier (v4 or a [NanoID](/blog/nanoid-vs-uuid)) in URLs.
+
+## Generating them
+
+**In the browser.** The <ToolLink tool="uuid" /> creates up to 10 UUIDs
+at a time, v7 by default. Toggle v4, uppercase or no hyphens. Everything runs
+locally in your browser; nothing is sent to a server.
+
+<TryIt tool="uuid" />
+
+**From scripts and CI**, use the REST API:
+
+```bash
+curl -s '@@API_BASE@@/api/v1/uuid?version=7&count=3'
+```
+
+```json
+{
+  "version": 7,
+  "count": 3,
+  "uuids": [
+    "01a15c4c-c8ee-7439-aa40-3bf8e7fa6b21",
+    "01a15c4c-c8ee-743a-9743-67073196e141",
+    "01a15c4c-c8ee-743b-8d8f-1202bd5dadb7"
+  ]
+}
+```
+
+| Parameter | Values | Default |
+|---|---|---|
+| `version` | `4` or `7` | `7` |
+| `count` | `1`–`10` | `1` |
+| `uppercase` | `true` / `false` | `false` |
+| `hyphens` | `true` / `false` | `true` |
+
+Responses are sent with `Cache-Control: no-store`, so no proxy will ever replay
+an ID it has already handed out.
+
+**From an AI agent**, call the `generate_uuid` MCP tool with
+`{ "version": 7, "count": 5 }`. See the [MCP guide](/blog/mcp-server-for-ai-agents)
+for setup.
+
+**In your own code**, you rarely need a service. `crypto.randomUUID()` gives you v4
+in every modern runtime, and v7 is built into PostgreSQL 18 (`uuidv7()`), Python
+3.14 (`uuid.uuid7()`) and most popular UUID libraries.
+
+## Quick decision guide
+
+- **Database primary key, internal use** → v7
+- **Public identifier where creation time should stay private** → v4
+- **Short, URL-friendly or human-facing ID** → neither; see [NanoID vs UUID](/blog/nanoid-vs-uuid)
+- **Secret token** → none of the above; use 256 bits from a CSPRNG

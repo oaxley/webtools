@@ -1,0 +1,185 @@
+---
+title: "Reading an X.509 certificate field by field"
+description: "PEM vs DER, subject and issuer, validity, SAN, key usage, basic constraints and fingerprints: what each field means and how to use them to debug TLS errors."
+date: 2026-10-20
+order: 5
+tags: [x509, tls, certificates, debugging]
+tools: [x509]
+---
+
+Every HTTPS connection starts with the server showing a certificate. When that goes
+wrong, you get vague errors like `certificate verify failed`,
+`ERR_CERT_COMMON_NAME_INVALID` or `x509: certificate signed by unknown authority`.
+In most cases the explanation is already written inside the certificate.
+
+This guide goes through a certificate field by field with the
+<ToolLink tool="x509" />, then works through the debugging cases you'll hit most often.
+
+## PEM, DER and getting hold of the certificate
+
+A certificate is an ASN.1 structure encoded in binary as **DER**. **PEM** is that same
+DER, base64-encoded and wrapped in header lines so it can be pasted as text:
+
+```text
+-----BEGIN CERTIFICATE-----
+MIIDsjCCApqgAwIBAgIUYvGZlAsjO7p8fNMZzOW585nNmX0wDQYJKoZIhvcNAQEL
+…
+-----END CERTIFICATE-----
+```
+
+The decoder accepts either a PEM block or bare base64 DER. To grab the certificate
+a live server presents:
+
+```bash
+openssl s_client -connect example.com:443 -servername example.com </dev/null \
+  | openssl x509 -outform PEM
+```
+
+<Callout type="tip">
+Always pass `-servername`. Without it, servers that host several sites may send a
+default certificate that isn't the one browsers receive, and you'll end up debugging
+the wrong certificate.
+</Callout>
+
+A certificate is **public**: the server sends it to anyone who connects.
+Pasting it into a tool is safe. Just never paste the **private key** (`BEGIN PRIVATE KEY`).
+
+## The core fields
+
+Load the **RSA server sample** on the decoder page and you'll see something like this:
+
+```json
+{
+  "certificate": {
+    "version": 3,
+    "serialNumber": "62:f1:99:94:0b:23:3b:ba:7c:7c:d3:19:cc:e5:b9:f3:99:cd:99:7d",
+    "signatureAlgorithm": "sha256WithRSAEncryption",
+    "issuer": "CN=example.com, O=Example Corp, C=US",
+    "validity": {
+      "notBefore": "2026-10-11T18:28:45.000Z",
+      "notAfter": "2027-10-11T18:28:45.000Z"
+    },
+    "subject": "CN=example.com, O=Example Corp, C=US",
+    "subjectPublicKey": { "algorithm": "RSA", "sizeBits": 2048 }
+  }
+}
+```
+
+- **Subject**: who the certificate identifies. `CN` is the Common Name.
+- **Issuer**: who signed it. When issuer and subject are the same, as here, the
+  certificate is **self-signed**.
+- **Validity**: the `notBefore` → `notAfter` window. The decoder adds an `analysis`
+  block saying whether the certificate is `pending`, `active` or `expired`, and for how long.
+- **Serial number**: unique per issuer. It's what revocation lists and support
+  tickets refer to.
+- **Signature algorithm**: how the issuer signed it. Expect `sha256WithRSAEncryption`
+  or `ecdsa-with-SHA256` today; anything with SHA-1 or MD5 is obsolete.
+- **Public key**: the algorithm and size. RSA should be at least 2048 bits, and ECDSA P-256 is
+  common and efficient.
+
+## Extensions: where the real rules live
+
+Modern (version 3) certificates carry **extensions**, and that's where most
+real-world problems hide.
+
+**Subject Alternative Name (SAN).** This lists the hostnames and IPs the certificate is
+valid for:
+
+```json
+"ext:subjectAltName": {
+  "names": [
+    { "type": "DNS", "value": "example.com" },
+    { "type": "DNS", "value": "www.example.com" },
+    { "type": "IP",  "value": "192.0.2.1" }
+  ]
+}
+```
+
+<Callout type="warning">
+Browsers and modern TLS libraries **ignore the CN** and check only the SAN. A
+certificate with `CN=api.example.com` but no matching SAN entry is rejected.
+A wildcard like `*.example.com` covers `api.example.com`, but neither
+`example.com` itself nor `a.b.example.com`.
+</Callout>
+
+**Basic Constraints.** This says whether the certificate is a **CA** (it may sign other
+certificates). Server (leaf) certificates should have `ca: false`. Our sample is a
+self-signed test certificate with `ca: true`, which is fine for a lab and a red flag on a
+production server.
+
+**Key Usage / Extended Key Usage.** These restrict what the key may do. A TLS server
+certificate needs `serverAuth` in Extended Key Usage. `clientAuth` is for mutual TLS
+clients.
+
+**Authority Key Identifier / Subject Key Identifier.** These identify the signing key and the
+certificate's own key. A leaf's **AKI** should equal its issuer's **SKI**, which is how you
+match a certificate to its intermediate.
+
+**Authority Information Access / CRL Distribution Points.** These are URLs for downloading
+the issuer certificate and for checking revocation (OCSP, CRL).
+
+## Fingerprints
+
+The SHA-256 and SHA-1 **fingerprints** are hashes of the whole DER encoding. They
+identify one exact certificate, which is useful for pinning, comparing what two
+servers serve, or confirming that a renewal actually deployed:
+
+```json
+"fingerprints": {
+  "sha256": "e1:d4:0e:2a:a2:0c:61:ac:3b:d7:2a:c0:37:df:5c:2a:f1:d7:89:55:6d:c4:21:2a:d9:ab:bc:a9:c4:80:62:df"
+}
+```
+
+## Debugging the usual suspects
+
+### "Certificate has expired"
+
+Check `analysis.state` and `notAfter`. If the certificate on disk was renewed but clients still
+see the old one, compare **fingerprints** between the file and what
+`openssl s_client` returns. A process that wasn't reloaded, or a load balancer holding
+its own copy, is the usual cause. If the state is `pending`, the machine issuing or
+checking the certificate probably has the wrong clock.
+
+### "Hostname mismatch" / `ERR_CERT_COMMON_NAME_INVALID`
+
+Read the SAN list. The exact hostname the client used, including or excluding `www.`, must appear,
+or match a wildcard one level deep. Connecting by IP requires an `IP` SAN entry.
+
+### "Unable to get local issuer certificate" / "unknown authority"
+
+Look at the **issuer** of the leaf. The server must send the leaf *and* its
+intermediate(s). Browsers sometimes cope with a missing intermediate, while `curl`, Java,
+Python and mobile apps don't. Check that the intermediate's subject equals the leaf's
+issuer and that its SKI equals the leaf's AKI. If the issuer is the certificate itself,
+it's self-signed, and clients must trust it explicitly.
+
+### "I pasted the wrong certificate"
+
+A `fullchain.pem` file contains several certificates. The decoder reads the **first** one,
+which is normally the leaf. If you see `ca: true` and a subject like
+`CN=R11, O=Let's Encrypt`, you're looking at the intermediate.
+
+## Automate it
+
+**API.** POST the certificate as JSON or form data. It's a POST so PEM blocks with newlines
+stay out of URLs and logs:
+
+```bash
+jq -Rs '{data: .}' cert.pem \
+  | curl -s @@API_BASE@@/api/v1/x509 -H 'Content-Type: application/json' -d @- \
+  | jq '{subject: .certificate.subject, expires: .analysis.notAfter, state: .analysis.state, san: .extensions["ext:subjectAltName"].names}'
+```
+
+This fits a cron job or CI step that warns before certificates expire.
+
+**MCP.** The `decode_x509` tool lets an AI agent answer questions like *"Is this certificate
+valid for api.example.com, and when should I renew it?"* See the
+[MCP guide](/blog/mcp-server-for-ai-agents).
+
+<Callout type="note" title="What the decoder doesn't do">
+It shows what the certificate **claims**. It does **not** verify the signature, build
+or validate the chain, or check revocation. For a full verification, use
+`openssl verify -CAfile chain.pem cert.pem` or connect with your actual TLS client.
+</Callout>
+
+<TryIt tool="x509">Paste a PEM certificate, or load one of the samples.</TryIt>

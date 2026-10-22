@@ -1,0 +1,169 @@
+---
+title: "What's really inside your JWT and why decoding isn't verifying"
+description: "A hands-on tour of a JSON Web Token: header, payload, signature and the claims that matter. Then the checks your server must do before trusting one."
+date: 2026-10-20
+order: 3
+tags: [jwt, security, oauth, debugging]
+tools: [jwt]
+---
+
+JSON Web Tokens are everywhere: OAuth access tokens, OpenID Connect ID tokens,
+session cookies, signed links. When a request fails with `401 Unauthorized`, the
+first debugging step is almost always "what's in that token?"
+
+This guide decodes a token step by step, explains the claims you'll
+run into, and then covers the most common misunderstanding about JWTs: **anyone can
+read one, and reading it proves nothing.**
+
+## Anatomy of a token
+
+A JWT is three base64url-encoded parts joined by dots:
+
+```text
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQy….c2lnbmF0dXJlLW5vdC12ZXJpZmllZA
+└──────────── header ──────────────┘ └───── payload ─────┘ └───────── signature ────────┘
+```
+
+1. **Header**: JSON describing how the token is signed.
+2. **Payload**: JSON with the *claims*, the statements the token makes.
+3. **Signature**: bytes computed over the first two parts with a key.
+
+Base64url is an **encoding, not encryption**. Decode the first two parts and you get
+plain JSON:
+
+```json
+// header
+{ "alg": "HS256", "typ": "JWT" }
+
+// payload
+{
+  "sub": "user_42",
+  "name": "Ada Lovelace",
+  "iss": "https://auth.example.com",
+  "aud": "webtools-demo",
+  "iat": 1767225600,
+  "exp": 1767229200
+}
+```
+
+<Callout type="warning">
+Since anyone holding the token can read the payload, **never put secrets in it**:
+no passwords, API keys or personal data you wouldn't print in a log. If you need
+confidentiality, you want JWE (encrypted tokens), not a regular signed JWT.
+</Callout>
+
+## The claims that matter
+
+| Claim | Meaning | What to check |
+|---|---|---|
+| `iss` | Issuer: who created the token | Exactly matches the identity provider you trust |
+| `sub` | Subject: who the token is about | Use as the user ID, not `name` or `email` |
+| `aud` | Audience: who the token is *for* | Contains **your** API's identifier |
+| `exp` | Expiration time | Now is before `exp` (allow a little clock skew) |
+| `nbf` | Not before | Now is after `nbf` |
+| `iat` | Issued at | Not in the future; useful for maximum token age |
+| `jti` | Token ID | Unique; use it to block replays or revoke tokens |
+
+Time claims are **seconds** since the Unix epoch (not milliseconds), which is a
+classic source of off-by-1000 bugs. In the sample, `iat: 1767225600` is
+1 January 2026 at 00:00 UTC and `exp` is exactly one hour later.
+
+In the header, the important fields are `alg` (the signing algorithm, e.g. `HS256`
+or `RS256`) and, for asymmetric algorithms, `kid` (which of the issuer's keys
+signed it).
+
+## Decode it in the browser
+
+Paste a token into the <ToolLink tool="jwt" />. It splits the token into colour-coded
+parts, lists the known claims and explains each field, converts every
+timestamp to a readable date, and flags the token as **active** or **expired**.
+Decoding happens entirely in your browser; the token is never sent anywhere.
+
+<TryIt tool="jwt" />
+
+## Decode it from a script
+
+For CI pipelines or scripted debugging, call the API. The token goes in a **POST body**,
+never in a query string, so it stays out of access logs and browser history:
+
+```bash
+curl -s @@API_BASE@@/api/v1/jwt \
+  -H 'Content-Type: application/json' \
+  -d '{"data": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQyIiwibmFtZSI6IkFkYSBMb3ZlbGFjZSIsImlzcyI6Imh0dHBzOi8vYXV0aC5leGFtcGxlLmNvbSIsImF1ZCI6IndlYnRvb2xzLWRlbW8iLCJpYXQiOjE3NjcyMjU2MDAsImV4cCI6MTc2NzIyOTIwMH0.c2lnbmF0dXJlLW5vdC12ZXJpZmllZA"}'
+```
+
+```json
+{
+  "header": { "alg": "HS256", "typ": "JWT" },
+  "payload": {
+    "sub": "user_42",
+    "name": "Ada Lovelace",
+    "iss": "https://auth.example.com",
+    "aud": "webtools-demo",
+    "iat": 1767225600,
+    "exp": 1767229200
+  },
+  "signature": "c2lnbmF0dXJlLW5vdC12ZXJpZmllZA",
+  "analysis": {
+    "state": "expired",
+    "message": "Token expired 9 months ago.",
+    "exp": "Thursday, 1 January 2026 at 01:00:00 UTC",
+    "iat": "Thursday, 1 January 2026 at 00:00:00 UTC"
+  }
+}
+```
+
+`analysis.state` is one of `valid`, `expired`, `not_yet_valid` or `no_expiry`.
+Form-encoded bodies (`data=<token>`) work too. AI agents can call the same logic
+through the `decode_jwt` [MCP tool](/blog/mcp-server-for-ai-agents).
+
+## Decoding is not verifying
+
+Everything above works on **any** string that looks like a JWT, including one
+somebody typed by hand. Changing `"sub": "user_42"` to `"sub": "admin"` and
+re-encoding takes seconds. The only thing that stops a forged token is the
+**signature check**, and WebTools deliberately doesn't do it. It's a
+debugging tool and has no access to your keys.
+
+Your server, on the other hand, must verify every token before trusting it:
+
+1. **Pin the algorithm.** Configure the expected algorithm(s) yourself; never take
+   `alg` from the token header at face value.
+   - Reject `alg: none`, which means "unsigned".
+   - Don't let an RSA public key be used as an HMAC secret. This is the classic
+     `RS256` → `HS256` confusion attack.
+2. **Verify the signature** with the issuer's key. For OIDC providers, fetch the public
+   keys from their JWKS endpoint and select one by `kid`.
+3. **Check `iss` and `aud`** against exact expected values. A valid token issued to
+   *another* application is not valid for yours.
+4. **Check `exp` and `nbf`** with a small clock-skew allowance (30–60 seconds).
+5. **Use a maintained library** (`jose` for JavaScript, `PyJWT` or `authlib` for Python,
+   `golang-jwt` for Go) with its strict options turned on, rather than parsing
+   tokens by hand.
+
+<Callout type="note" title="Why doesn't the API verify signatures?">
+Verification needs the secret (for HS256) or the issuer's public key. Sending a
+signing secret to a third-party service would defeat the point. Verifying with public
+keys is possible, but it belongs in your own server, where you control which issuers
+and keys are trusted.
+</Callout>
+
+## Debugging checklist for a rejected token
+
+When an API answers `401` and you have the token in hand:
+
+- **Expired?** Look at `analysis.state` and `exp`. Check the server's clock too.
+- **Wrong audience?** `aud` must match what the API expects. This is very common when
+  the token was requested for a different API.
+- **Wrong issuer?** A staging token sent to production (or the reverse) looks fine
+  but fails the `iss` check.
+- **Wrong token type?** An OIDC **ID token** is not an **access token**. APIs expect the
+  latter.
+- **Unexpected `alg` or `kid`?** The issuer may have rotated its keys and your server
+  is still caching the old JWKS.
+
+## Keep tokens safe while debugging
+
+- Prefer expired or test tokens. A valid production token is a password while it's valid.
+- The web decoder runs locally. The API and MCP tool don't log or echo tokens, but
+  any third-party service (or LLM) you paste a token into gets a copy.
