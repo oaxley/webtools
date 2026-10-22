@@ -9,9 +9,10 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import GithubSlugger from 'github-slugger'
 import { parse as parseYaml } from 'yaml'
 import { TOOLS } from '../src/tools.ts'
-import type { PostCover, PostMeta } from '../src/blog/types.ts'
+import type { PostCover, PostHeading, PostMeta } from '../src/blog/types.ts'
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -58,6 +59,46 @@ function parseCover(file: string, value: unknown): PostCover | undefined {
     cover[key] = v.trim()
   }
   return cover
+}
+
+/**
+ * h2/h3 headings of an MDX body, with the ids rehype-slug will give them
+ * (same slugger, same document order, so duplicate suffixes line up).
+ * Inline Markdown is reduced to its text first, as rehype-slug sees it.
+ */
+function extractHeadings(body: string): PostHeading[] {
+  const slugger = new GithubSlugger()
+  const headings: PostHeading[] = []
+  let fence: string | null = null
+  for (const line of body.split(/\r?\n/)) {
+    const f = /^\s*(```+|~~~+)/.exec(line)
+    if (f) {
+      if (fence === null) fence = f[1]
+      else if (f[1].startsWith(fence[0]) && f[1].length >= fence.length) fence = null
+      continue
+    }
+    if (fence !== null) continue
+    const m = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line)
+    if (!m) continue
+    // Code spans are literal; elsewhere drop links and emphasis markers
+    // (`_` only at word edges, as in CommonMark: snake_case stays).
+    const text = m[2]
+      .split(/(`[^`]*`)/)
+      .map((part) =>
+        part.startsWith('`')
+          ? part.slice(1, -1)
+          : part
+              .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+              .replace(/(\*\*|\*)(\S(?:.*?\S)?)\1/g, '$2')
+              .replace(/(?<![\w])(__|_)(\S(?:.*?\S)?)\1(?![\w])/g, '$2'),
+      )
+      .join('')
+    // Every heading advances the slugger, even ones we don't list.
+    const id = slugger.slug(text)
+    const depth = m[1].length
+    if (depth === 2 || depth === 3) headings.push({ depth, text, id })
+  }
+  return headings
 }
 
 /** Rough reading time: prose words only (code blocks and JSX excluded). */
@@ -129,6 +170,7 @@ export function parsePost(file: string, source: string): PostMeta {
     draft,
     ...(fm.cover !== undefined && { cover: parseCover(file, fm.cover) }),
     readingMinutes: readingMinutes(source.slice(match[0].length)),
+    headings: extractHeadings(source.slice(match[0].length)),
   }
 }
 

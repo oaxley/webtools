@@ -18,6 +18,15 @@ export interface PostMeta {
   /** Card cover overrides; defaults come from the first related tool. */
   cover?: PostCover
   readingMinutes: number
+  /** h2/h3 headings in document order, for the "On this page" list. */
+  headings: PostHeading[]
+}
+
+export interface PostHeading {
+  depth: 2 | 3
+  text: string
+  /** Same id rehype-slug gives the rendered heading. */
+  id: string
 }
 
 /** Optional cover customisation for listing cards. */

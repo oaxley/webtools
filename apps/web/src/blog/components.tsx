@@ -8,6 +8,7 @@
  */
 import {
   Children,
+  cloneElement,
   isValidElement,
   useId,
   useState,
@@ -27,27 +28,119 @@ function textOf(node: ReactNode): string {
   return ''
 }
 
-/** Code block (`pre` emitted by rehype-pretty-code) with a copy button. */
-export function Pre(props: ComponentProps<'pre'>) {
+const LANGUAGE_LABELS: Record<string, string> = {
+  bash: 'Shell',
+  sh: 'Shell',
+  shell: 'Shell',
+  json: 'JSON',
+  jsonc: 'JSON',
+  js: 'JavaScript',
+  javascript: 'JavaScript',
+  ts: 'TypeScript',
+  typescript: 'TypeScript',
+  py: 'Python',
+  python: 'Python',
+  sql: 'SQL',
+  http: 'HTTP',
+  text: 'Text',
+  plaintext: 'Text',
+}
+
+type PreProps = ComponentProps<'pre'> & {
+  'data-language'?: string
+  /** File name from a ```lang title="…" fence, passed down by `Figure`. */
+  codeTitle?: string
+}
+
+/**
+ * Code block (`pre` emitted by rehype-pretty-code): a header bar with the
+ * file name (or language) and a copy button, then the highlighted code.
+ */
+export function Pre({ codeTitle, ...props }: PreProps) {
   // Shiki wraps every line in its own <span>, separated by "\n" text
   // nodes, so the flattened text is exactly the source of the block.
   const text = textOf(props.children).replace(/\n$/, '')
+  const lang = props['data-language']
+  const label = codeTitle ?? (lang ? (LANGUAGE_LABELS[lang] ?? lang) : 'Code')
   return (
     <div className="code-block">
+      <div className="code-block-header">
+        <span className={codeTitle ? 'code-block-title' : 'code-block-lang'}>{label}</span>
+        <CopyJsonButton
+          text={text}
+          label="Copy"
+          size="sm"
+          ariaLabel={codeTitle ? `Copy ${codeTitle}` : 'Copy code'}
+          className="code-copy"
+        />
+      </div>
       <pre {...props} />
-      <CopyJsonButton
-        text={text}
-        label="Copy"
-        size="sm"
-        ariaLabel="Copy code"
-        className="code-copy"
-      />
     </div>
+  )
+}
+
+/**
+ * rehype-pretty-code wraps each block in a <figure>, with the fence title
+ * as a <figcaption>. Fold the caption into the code block's header bar.
+ */
+export function Figure({ children, ...props }: ComponentProps<'figure'>) {
+  if (!('data-rehype-pretty-code-figure' in props)) return <figure {...props}>{children}</figure>
+  let title: string | undefined
+  const rest: ReactNode[] = []
+  for (const child of Children.toArray(children)) {
+    if (
+      isValidElement<{ children?: ReactNode } & Record<string, unknown>>(child) &&
+      'data-rehype-pretty-code-title' in child.props
+    ) {
+      title = textOf(child.props.children)
+    } else {
+      rest.push(child)
+    }
+  }
+  return (
+    <figure {...props}>
+      {rest.map((child) =>
+        title !== undefined && isValidElement<PreProps>(child)
+          ? cloneElement(child, { codeTitle: title })
+          : child,
+      )}
+    </figure>
+  )
+}
+
+/** `#` link appended to headings: jumps to the section and copies its URL. */
+function HeadingAnchor({ href, children, ...rest }: ComponentProps<'a'> & { href: string }) {
+  return (
+    <a
+      href={href}
+      {...rest}
+      title="Copy link to this section"
+      onClick={(e) => {
+        const link = e.currentTarget
+        const url = new URL(href, window.location.href).toString()
+        navigator.clipboard?.writeText(url).then(
+          () => {
+            link.dataset.copied = ''
+            window.setTimeout(() => delete link.dataset.copied, 1500)
+          },
+          () => {},
+        )
+      }}
+    >
+      {children}
+    </a>
   )
 }
 
 /** Internal links use the router; external ones open in a new tab. */
 export function Anchor({ href = '', children, ...rest }: ComponentProps<'a'>) {
+  if (href.startsWith('#') && rest.className?.includes('heading-anchor')) {
+    return (
+      <HeadingAnchor href={href} {...rest}>
+        {children}
+      </HeadingAnchor>
+    )
+  }
   if (href.startsWith('/')) {
     return (
       <Link to={href} {...rest}>
@@ -86,6 +179,22 @@ const CALLOUT_LABELS: Record<CalloutType, string> = {
   warning: 'Warning',
 }
 
+const CALLOUT_ICONS: Record<CalloutType, ReactNode> = {
+  note: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </>
+  ),
+  tip: <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2.2h5c.1-1 .5-1.7 1.1-2.2A6 6 0 0 0 12 3z" />,
+  warning: (
+    <>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
+}
+
 export function Callout({
   type = 'note',
   title,
@@ -97,8 +206,25 @@ export function Callout({
 }) {
   return (
     <aside className={`callout callout-${type}`}>
-      <p className="callout-title">{title ?? CALLOUT_LABELS[type]}</p>
-      <div className="callout-body">{children}</div>
+      <svg
+        className="callout-icon"
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        {CALLOUT_ICONS[type]}
+      </svg>
+      <div className="callout-content">
+        <p className="callout-title">{title ?? CALLOUT_LABELS[type]}</p>
+        <div className="callout-body">{children}</div>
+      </div>
     </aside>
   )
 }
@@ -118,7 +244,11 @@ export function TryIt({
   if (!tool) throw new Error(`<TryIt>: unknown tool id '${id}'.`)
   const to = query ? `${tool.path}?${query}` : tool.path
   return (
-    <Link className="try-it" to={to}>
+    <Link
+      className="try-it"
+      to={to}
+      style={{ '--try-accent': tool.accent } as React.CSSProperties}
+    >
       <span
         className="tool-tile"
         aria-hidden="true"
@@ -131,8 +261,8 @@ export function TryIt({
         <span className="try-it-name">{tool.name}</span>
         <span className="try-it-desc">{children ?? tool.description}</span>
       </span>
-      <span className="try-it-arrow" aria-hidden="true">
-        →
+      <span className="try-it-cta">
+        Open tool <span aria-hidden="true">→</span>
       </span>
     </Link>
   )
