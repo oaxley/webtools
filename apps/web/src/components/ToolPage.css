@@ -352,6 +352,145 @@ select.tool-input {
   }
 }
 
+/* ---- Field guide ("What do these fields mean?") ---------------------------
+   Used by every tool with explanations (IP, JWT, X.509). */
+
+.field-guide {
+  border-top: 1px solid var(--border);
+  padding-top: 32px;
+  margin-top: 48px;
+}
+
+.field-guide h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  color: var(--text-h);
+}
+
+.field-guide-hint {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.field-guide dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-group-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  margin: 32px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.field-guide dl > div {
+  display: grid;
+  /* Left column: identifier + RFC link. Right column: name + description.
+     Wide enough to fit the longest known identifier (authorityKeyIdentifier)
+     on one line at 13px monospace. */
+  grid-template-columns: 210px 1fr;
+  gap: 4px 24px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  scroll-margin-top: calc(var(--header-h) + 16px);
+  transition: background-color 0.3s ease;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field-guide dt {
+  color: var(--text-h);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.field-key {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.field-guide dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.field-name {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  line-height: 1.25;
+}
+
+.field-description {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.field-rfc {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.field-rfc-link {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+.field-rfc-arrow {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.field-guide dl > div.field-flash {
+  animation: field-flash 1.6s ease-out;
+}
+
+@keyframes field-flash {
+  0% {
+    background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 /* ---- Related guides -------------------------------------------------------- */
 
 .tool-guides {
@@ -383,33 +522,4 @@ select.tool-input {
       text-decoration: underline;
     }
   }
-}
-
-/* ---- Legacy (pages not yet on <ToolPage>) — removed once all are --------- */
-
-.tool-page > h1 {
-  margin: 0 0 8px;
-}
-
-.tool-lede {
-  margin: 0 0 28px;
-}
-
-.example-link {
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--accent);
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-p.examples {
-  display: block;
 }

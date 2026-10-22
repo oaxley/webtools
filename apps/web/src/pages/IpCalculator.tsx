@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../theme'
 import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { Examples, ToolPage } from '../components/ToolPage'
 import './IpCalculator.css'
 
 const DEFAULT_CIDR = '192.168.1.0/24'
@@ -325,10 +326,6 @@ function IpCalculator() {
     const handler = (ev: MediaQueryListEvent) => setIsMobile(ev.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
-  }, [])
-
-  useEffect(() => {
-    document.title = 'IP Subnet Calculator — WebTools'
   }, [])
 
   const outcome: Outcome = useMemo(() => {
@@ -721,14 +718,15 @@ function IpCalculator() {
     : null
 
   return (
-    <main className="tool-page">
-      <h1>IP Subnet Calculator</h1>
-      <p className="tool-lede">
-        {isMobile
+    <ToolPage
+      toolId="cidr"
+      className="ip-page"
+      lede={
+        isMobile
           ? 'Enter an IPv4 network in CIDR notation. Tap any field to jump to its explanation.'
-          : 'Enter an IPv4 network in CIDR notation to see its structure as a diagram.'}
-      </p>
-
+          : 'Enter an IPv4 network in CIDR notation to see its structure as a diagram. Click any box to learn what it means.'
+      }
+    >
       <form
         className="cidr-form"
         onSubmit={(e) => {
@@ -738,6 +736,7 @@ function IpCalculator() {
       >
         <input
           type="text"
+          className="tool-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="192.168.1.0/24"
@@ -745,27 +744,20 @@ function IpCalculator() {
           autoComplete="off"
           spellCheck={false}
         />
-        <button type="submit">Calculate</button>
+        <button type="submit" className="button button-primary">
+          Calculate
+        </button>
       </form>
 
-      <p className="examples">
-        Try:{' '}
-        {EXAMPLES.map((ex, i) => (
-          <span key={ex}>
-            {i > 0 && ' · '}
-            <button
-              type="button"
-              className="example-link"
-              onClick={() => {
-                setInput(ex)
-                submit(ex)
-              }}
-            >
-              {ex}
-            </button>
-          </span>
-        ))}
-      </p>
+      <Examples
+        items={EXAMPLES.map((ex) => ({
+          label: ex,
+          onClick: () => {
+            setInput(ex)
+            submit(ex)
+          },
+        }))}
+      />
 
       {!outcome.ok && (
         <p className="error-box" role="alert">
@@ -926,7 +918,7 @@ function IpCalculator() {
           </div>
         </dl>
       </section>
-    </main>
+    </ToolPage>
   )
 }
 

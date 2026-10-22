@@ -99,12 +99,6 @@
   /* ---- Typography --------------------------------------------------- */
   --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
-
-  /* Legacy aliases (pre-redesign names still used by some tool pages). */
-  --sans: var(--font-sans);
-  --heading: var(--font-sans);
-  --mono: var(--font-mono);
-  --social-bg: var(--surface-2);
 }
 
 [data-theme='dark'] {
