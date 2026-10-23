@@ -11,6 +11,7 @@ import ip from "./routes/ip";
 import jwt from "./routes/jwt";
 import mcp from "./routes/mcp";
 import nanoid from "./routes/nanoid";
+import ulid from "./routes/ulid";
 import uuid from "./routes/uuid";
 import x509 from "./routes/x509";
 
@@ -24,6 +25,7 @@ app.route("/api/v1/jwt", jwt);
 app.route("/api/v1/x509", x509);
 app.route("/api/v1/uuid", uuid);
 app.route("/api/v1/nanoid", nanoid);
+app.route("/api/v1/ulid", ulid);
 
 // MCP (Model Context Protocol) endpoint. Lives at the conventional
 // `/mcp` path, outside the versioned API namespace, so standard MCP

@@ -29,6 +29,9 @@
  * - `generate_nanoid(count?, size?, alphabet?, safeEnds?)` — mirrors
  *   `/api/v1/nanoid`. Returns `{ alphabet, size, safeEnds, count, ids }`
  *   with 1..10 NanoIDs (default: 21 characters, `url` alphabet).
+ * - `generate_ulid(count?, monotonic?, lowercase?)` — mirrors
+ *   `/api/v1/ulid`. Returns `{ monotonic, lowercase, count, ulids }` with
+ *   1..10 ULIDs (default: monotonic, upper case).
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -40,9 +43,11 @@ import {
   decodeJWT,
   decodeX509,
   generateNanoIds,
+  generateULIDs,
   generateUUIDs,
   isRoutable,
   MAX_NANOID_COUNT,
+  MAX_ULID_COUNT,
   MAX_UUID_COUNT,
   NANOID_ALPHABET_NAMES,
   NANOID_DEFAULT_SIZE,
@@ -262,6 +267,46 @@ function buildServer(): McpServer {
         return jsonResult({ alphabet, size, safeEnds, count: ids.length, ids });
       } catch (e) {
         return errorResult(e, "Invalid NanoID request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_ulid",
+    {
+      title: "ULID Generator",
+      description:
+        `Generate 1 to ${MAX_ULID_COUNT} ULIDs: 26-character, case-insensitive identifiers ` +
+        "(Crockford base32) that start with a millisecond timestamp, so they sort by creation time " +
+        "even as plain strings. A good fit for database keys and log or event IDs.",
+      inputSchema: {
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_ULID_COUNT)
+          .optional()
+          .describe(`How many ULIDs to generate, 1 to ${MAX_ULID_COUNT} (default 1)`),
+        monotonic: z
+          .boolean()
+          .optional()
+          .describe(
+            "Keep IDs strictly increasing even within the same millisecond " +
+              "by incrementing the random part (default true)",
+          ),
+        lowercase: z
+          .boolean()
+          .optional()
+          .describe("Use lower-case letters instead of the canonical upper case (default false)"),
+      },
+    },
+    ({ count = 1, monotonic = true, lowercase = false }) => {
+      try {
+        // Same shape as GET /api/v1/ulid.
+        const ulids = generateULIDs({ count, monotonic, lowercase });
+        return jsonResult({ monotonic, lowercase, count: ulids.length, ulids });
+      } catch (e) {
+        return errorResult(e, "Invalid ULID request");
       }
     },
   );

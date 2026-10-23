@@ -72,8 +72,13 @@ describe("POST /mcp", () => {
       "decode_jwt",
       "decode_x509",
       "generate_nanoid",
+      "generate_ulid",
       "generate_uuid",
     ]);
+    expect(byName.generate_ulid.description).toMatch(/ULID/);
+    expect(byName.generate_ulid.inputSchema.properties).toHaveProperty(
+      "monotonic",
+    );
     expect(byName.generate_nanoid.description).toMatch(/NanoID/);
     expect(byName.generate_nanoid.inputSchema.properties).toHaveProperty(
       "alphabet",
@@ -487,6 +492,47 @@ describe("POST /mcp — generate_nanoid", () => {
     "rejects %o",
     async (args) => {
       const body = await callGenerateNanoId(args);
+      const failed = body.error !== undefined || body.result?.isError === true;
+      expect(failed).toBe(true);
+    },
+  );
+});
+
+async function callGenerateUlid(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 50,
+    method: "tools/call",
+    params: { name: "generate_ulid", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — generate_ulid", () => {
+  it("defaults to a single monotonic upper-case ULID", async () => {
+    const body = await callGenerateUlid({});
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ monotonic: true, lowercase: false, count: 1 });
+    expect(payload.ulids).toHaveLength(1);
+    expect(payload.ulids[0]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+
+  it("generates a sorted batch, in lower case on request", async () => {
+    const body = await callGenerateUlid({ count: 10, lowercase: true });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ lowercase: true, count: 10 });
+    expect([...payload.ulids].sort()).toEqual(payload.ulids);
+    for (const id of payload.ulids) {
+      expect(id).toMatch(/^[0-7][0-9a-hjkmnp-tv-z]{25}$/);
+    }
+  });
+
+  it.each([{ count: 11 }, { count: 0 }, { monotonic: "yes" }])(
+    "rejects %o",
+    async (args) => {
+      const body = await callGenerateUlid(args);
       const failed = body.error !== undefined || body.result?.isError === true;
       expect(failed).toBe(true);
     },
