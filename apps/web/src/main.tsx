@@ -9,6 +9,7 @@ import BlogPost from './pages/BlogPost.tsx'
 import IpCalculator from './pages/IpCalculator.tsx'
 import JwtDecoder from './pages/JwtDecoder.tsx'
 import NanoIdGenerator from './pages/NanoIdGenerator.tsx'
+import UlidGenerator from './pages/UlidGenerator.tsx'
 import UuidGenerator from './pages/UuidGenerator.tsx'
 import X509Decoder from './pages/X509Decoder.tsx'
 import NotFound from './pages/NotFound.tsx'
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="x509" element={<X509Decoder />} />
           <Route path="uuid" element={<UuidGenerator />} />
           <Route path="nanoid" element={<NanoIdGenerator />} />
+          <Route path="ulid" element={<UlidGenerator />} />
           <Route path="blog" element={<BlogIndex />} />
           <Route path="blog/:slug" element={<BlogPost />} />
           <Route path="*" element={<NotFound />} />
