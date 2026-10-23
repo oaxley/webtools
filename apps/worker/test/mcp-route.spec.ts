@@ -69,12 +69,18 @@ describe("POST /mcp", () => {
     );
     expect(Object.keys(byName).sort()).toEqual([
       "calculate_cidr",
+      "convert_base32",
+      "convert_base58",
+      "convert_base64",
       "decode_jwt",
       "decode_x509",
       "generate_nanoid",
       "generate_ulid",
       "generate_uuid",
     ]);
+    expect(byName.convert_base64.inputSchema.properties).toHaveProperty("urlSafe");
+    expect(byName.convert_base32.inputSchema.properties).toHaveProperty("variant");
+    expect(byName.convert_base58.inputSchema.properties).not.toHaveProperty("padding");
     expect(byName.generate_ulid.description).toMatch(/ULID/);
     expect(byName.generate_ulid.inputSchema.properties).toHaveProperty(
       "monotonic",
@@ -537,6 +543,76 @@ describe("POST /mcp — generate_ulid", () => {
       expect(failed).toBe(true);
     },
   );
+});
+
+async function callTool(name: string, args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 60,
+    method: "tools/call",
+    params: { name, arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — convert_base64 / base32 / base58", () => {
+  it("encodes text with Base64 options", async () => {
+    const body = await callTool("convert_base64", {
+      operation: "encode",
+      data: "f",
+      padding: false,
+    });
+    expect(body.result?.isError).toBeFalsy();
+    expect(JSON.parse(body.result!.content![0].text)).toEqual({
+      encoding: "base64",
+      operation: "encode",
+      output: "Zg",
+      inputBytes: 1,
+    });
+  });
+
+  it("decodes Crockford Base32", async () => {
+    const body = await callTool("convert_base32", {
+      operation: "decode",
+      data: "CSQPYRK1E8",
+      variant: "crockford",
+    });
+    expect(JSON.parse(body.result!.content![0].text)).toMatchObject({
+      text: "foobar",
+      bytes: 6,
+    });
+  });
+
+  it("encodes hex bytes as Base58 and reports binary on decode", async () => {
+    const enc = await callTool("convert_base58", {
+      operation: "encode",
+      data: "00ff",
+      inputFormat: "hex",
+    });
+    const { output } = JSON.parse(enc.result!.content![0].text);
+    const dec = await callTool("convert_base58", { operation: "decode", data: output });
+    expect(JSON.parse(dec.result!.content![0].text)).toMatchObject({
+      text: null,
+      hex: "00ff",
+      bytes: 2,
+    });
+  });
+
+  it("surfaces decode errors as isError with the core message", async () => {
+    const body = await callTool("convert_base58", { operation: "decode", data: "0OIl" });
+    expect(body.result?.isError).toBe(true);
+    expect(body.result?.content?.[0].text).toMatch(/'0' is not in the alphabet/);
+  });
+
+  it("enforces the API size cap", async () => {
+    const body = await callTool("convert_base58", {
+      operation: "encode",
+      data: "a".repeat(2000),
+    });
+    expect(body.result?.isError).toBe(true);
+    expect(body.result?.content?.[0].text).toMatch(/1024-byte limit/);
+  });
 });
 
 describe("Unsupported methods on /mcp", () => {

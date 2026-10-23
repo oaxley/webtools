@@ -32,14 +32,21 @@
  * - `generate_ulid(count?, monotonic?, lowercase?)` — mirrors
  *   `/api/v1/ulid`. Returns `{ monotonic, lowercase, count, ulids }` with
  *   1..10 ULIDs (default: monotonic, upper case).
+ * - `convert_base64` / `convert_base32` / `convert_base58`
+ *   `(operation, data, inputFormat?, …options)` — mirror
+ *   `/api/v1/base64|base32|base58`, same size caps and result shapes
+ *   (`{ encoding, operation, output, inputBytes }` or
+ *   `{ encoding, operation, text, hex, bytes }`).
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/cfworker";
 import { z } from "zod";
+import { API_MAX_BYTES } from "./encoding";
 import {
   calculateCIDR,
+  convertEncoding,
   decodeJWT,
   decodeX509,
   generateNanoIds,
@@ -307,6 +314,126 @@ function buildServer(): McpServer {
         return jsonResult({ monotonic, lowercase, count: ulids.length, ulids });
       } catch (e) {
         return errorResult(e, "Invalid ULID request");
+      }
+    },
+  );
+
+  // Base64 / Base32 / Base58: one tool per encoding, with an `operation`
+  // argument, mirroring the three REST endpoints.
+  const encodingArgs = {
+    operation: z
+      .enum(["encode", "decode"])
+      .describe("`encode` the input, or `decode` an encoded string back to bytes"),
+    data: z
+      .string()
+      .describe("Text (or hex, see inputFormat) to encode, or the encoded string to decode"),
+    inputFormat: z
+      .enum(["text", "hex"])
+      .optional()
+      .describe("Encode only: read `data` as UTF-8 `text` (default) or as `hex` bytes"),
+  };
+  const RESULT_SHAPES =
+    "Encode returns `{ encoding, operation, output, inputBytes }`. Decode returns " +
+    "`{ encoding, operation, text, hex, bytes }`, where `text` is null when the bytes are not valid UTF-8.";
+
+  server.registerTool(
+    "convert_base64",
+    {
+      title: "Base64 Encoder / Decoder",
+      description:
+        "Encode text or hex bytes as Base64, or decode Base64 (standard or URL-safe, padding " +
+        `optional, whitespace ignored). Up to ${API_MAX_BYTES.base64} bytes. ${RESULT_SHAPES}`,
+      inputSchema: {
+        ...encodingArgs,
+        urlSafe: z
+          .boolean()
+          .optional()
+          .describe("Encode only: URL-safe alphabet with `-` and `_` (default false)"),
+        padding: z
+          .boolean()
+          .optional()
+          .describe("Encode only: emit `=` padding (default true)"),
+      },
+    },
+    ({ operation, data, inputFormat, urlSafe, padding }) => {
+      try {
+        return jsonResult(
+          convertEncoding({
+            encoding: "base64",
+            operation,
+            input: data,
+            inputFormat,
+            options: { urlSafe, padding },
+            maxBytes: API_MAX_BYTES.base64,
+          }),
+        );
+      } catch (e) {
+        return errorResult(e, "Invalid Base64 request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "convert_base32",
+    {
+      title: "Base32 Encoder / Decoder",
+      description:
+        "Encode text or hex bytes as Base32, or decode Base32. Supports the RFC 4648 alphabet " +
+        "(TOTP secrets) and Crockford's (case-insensitive, no I/L/O/U). " +
+        `Up to ${API_MAX_BYTES.base32} bytes. ${RESULT_SHAPES}`,
+      inputSchema: {
+        ...encodingArgs,
+        variant: z
+          .enum(["rfc4648", "crockford"])
+          .optional()
+          .describe("Alphabet: `rfc4648` (default) or `crockford`"),
+        padding: z
+          .boolean()
+          .optional()
+          .describe("Encode only, RFC 4648 only: emit `=` padding (default true)"),
+      },
+    },
+    ({ operation, data, inputFormat, variant, padding }) => {
+      try {
+        return jsonResult(
+          convertEncoding({
+            encoding: "base32",
+            operation,
+            input: data,
+            inputFormat,
+            options: { variant, padding },
+            maxBytes: API_MAX_BYTES.base32,
+          }),
+        );
+      } catch (e) {
+        return errorResult(e, "Invalid Base32 request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "convert_base58",
+    {
+      title: "Base58 Encoder / Decoder",
+      description:
+        "Encode text or hex bytes as Base58 (Bitcoin alphabet, no 0/O/I/l), or decode Base58. " +
+        "Used for Bitcoin addresses, IPFS CIDs and Solana keys; pass `inputFormat: \"hex\"` " +
+        `to encode raw bytes. Up to ${API_MAX_BYTES.base58} bytes. ${RESULT_SHAPES}`,
+      inputSchema: encodingArgs,
+    },
+    ({ operation, data, inputFormat }) => {
+      try {
+        return jsonResult(
+          convertEncoding({
+            encoding: "base58",
+            operation,
+            input: data,
+            inputFormat,
+            maxBytes: API_MAX_BYTES.base58,
+          }),
+        );
+      } catch (e) {
+        return errorResult(e, "Invalid Base58 request");
       }
     },
   );
