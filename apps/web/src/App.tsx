@@ -71,12 +71,15 @@ function SiteFooter() {
  * browser's own scroll restoration, and leave in-page `#hash` links alone.
  */
 function ScrollToTop() {
-  const { pathname, hash } = useLocation()
+  const { pathname, hash, state } = useLocation()
   const navigationType = useNavigationType()
+  // Tab-like links between sibling tools (Base64 | Base32 | Base58) pass
+  // `{ keepScroll: true }` so the page doesn't jump while switching.
+  const keepScroll = (state as { keepScroll?: boolean } | null)?.keepScroll === true
   useLayoutEffect(() => {
-    if (navigationType === 'POP' || hash) return
+    if (navigationType === 'POP' || hash || keepScroll) return
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [pathname, hash, navigationType])
+  }, [pathname, hash, navigationType, keepScroll])
   return null
 }
 

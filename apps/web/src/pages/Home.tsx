@@ -262,7 +262,7 @@ function Home() {
   usePageMeta({
     title: 'WebTools — Free online tools for developers',
     description:
-      'Subnet calculator, JWT and X.509 decoders, UUID, NanoID and ULID generators. In your browser, over a REST API, or inside your AI agent via MCP.',
+      'Subnet calculator, JWT and X.509 decoders, UUID, NanoID and ULID generators, Base64/32/58 encoders. In your browser, over a REST API, or inside your AI agent via MCP.',
   })
 
   const [query, setQuery] = useState('')
@@ -313,7 +313,7 @@ function Home() {
             <span className="home-hero-accent">In your browser, your scripts, your agent.</span>
           </h1>
           <p className="home-hero-lede">
-            Calculate subnets, decode JWTs and certificates, generate UUIDs, NanoIDs and ULIDs. No
+            Calculate subnets, decode JWTs and certificates, generate UUIDs, NanoIDs and ULIDs, encode Base64. No
             sign-up, nothing logged.
           </p>
 

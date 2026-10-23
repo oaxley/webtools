@@ -240,7 +240,7 @@ export function blogStatic(options: Options = {}): Plugin {
         image: await og('default', {
           eyebrow: 'Developer tools',
           title: 'Precise, privacy-first tools for engineers.',
-          description: 'Subnets, JWTs, X.509 certificates, UUIDs, NanoIDs and ULIDs.',
+          description: 'Subnets, JWTs, X.509 certificates, UUIDs, NanoIDs, ULIDs and Base64.',
           footer: [toolsLine, 'REST API', 'MCP server', 'No sign-up'],
         }),
         imageAlt: `${SITE_CONFIG.name}: developer tools in the browser, over a REST API and via MCP`,
