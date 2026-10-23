@@ -1,3 +1,39 @@
+export {
+    BASE32_ALPHABET,
+    BASE32_CROCKFORD_ALPHABET,
+    BASE32_VARIANTS,
+    BASE58_ALPHABET,
+    BASE64_ALPHABET,
+    BASE64_URL_ALPHABET,
+    BASE_ENCODINGS,
+    BYTES_FORMATS,
+    bytesToHex,
+    bytesToText,
+    convertEncoding,
+    decodeBase32,
+    decodeBase58,
+    decodeBase64,
+    encodeBase32,
+    encodeBase58,
+    encodeBase64,
+    ENCODING_OPERATIONS,
+    hexToBytes,
+    MAX_BASE58_BYTES,
+    MAX_ENCODING_BYTES,
+    textToBytes,
+} from "./encoding";
+export type {
+    Base32Variant,
+    BaseEncoding,
+    BytesFormat,
+    ConversionResult,
+    ConvertEncodingInput,
+    DecodeResult,
+    EncodeResult,
+    EncodingOperation,
+    EncodingOptions,
+} from "./encoding";
+
 export { calculateCIDR, isRoutable } from "./ip";
 export type { CidrResult } from "./ip";
 
