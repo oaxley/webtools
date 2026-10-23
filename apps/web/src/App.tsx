@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useLayoutEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import './App.css'
 import { Logo } from './components/Logo'
 import { ThemeSwitch } from './components/ThemeSwitch'
@@ -64,11 +64,28 @@ function SiteFooter() {
   )
 }
 
+/**
+ * Client-side navigation keeps the previous scroll position, so a link
+ * clicked at the bottom of a page would open the next one at its bottom.
+ * Jump to the top on new navigations; leave back/forward (POP) to the
+ * browser's own scroll restoration, and leave in-page `#hash` links alone.
+ */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation()
+  const navigationType = useNavigationType()
+  useLayoutEffect(() => {
+    if (navigationType === 'POP' || hash) return
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname, hash, navigationType])
+  return null
+}
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <>
+      <ScrollToTop />
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>

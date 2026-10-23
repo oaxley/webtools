@@ -256,6 +256,17 @@
   gap: 32px;
   max-height: calc(100vh - var(--header-h) - 64px);
   overflow-y: auto;
+  /* The tool links use negative inline margins for their hover background;
+     give them room so they don't trigger horizontal overflow. */
+  padding-inline: 6px;
+  margin-inline: -6px;
+  overscroll-behavior: contain;
+  /* Still scrollable when very tall, but without a visible scrollbar. */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .post-aside-title {
@@ -584,6 +595,14 @@
   & tbody tr + tr td {
     border-top: 1px solid var(--border);
   }
+
+  /* Identifiers (tool names, paths, IDs) must never break mid-word: the
+     column grows to fit them and prose columns take the remaining space.
+     Narrow screens scroll the table sideways via .table-scroll. */
+  & td code {
+    white-space: nowrap;
+    word-break: normal;
+  }
 }
 
 /* ---- Code blocks (rehype-pretty-code + Shiki) --------------------------- */
@@ -816,9 +835,18 @@
 .tabs-list {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--border);
+  /* Divider drawn inside the box (not a border) so the active tab's
+     underline can sit on top of it without overflowing the list. */
+  box-shadow: inset 0 -1px 0 var(--border);
   margin-bottom: 10px;
+  /* Scrolls sideways on narrow screens, but never shows a scrollbar. */
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .tabs-tab {
@@ -830,7 +858,6 @@
   border: none;
   border-bottom: 2px solid transparent;
   padding: 8px 12px;
-  margin-bottom: -1px;
   cursor: pointer;
   white-space: nowrap;
 

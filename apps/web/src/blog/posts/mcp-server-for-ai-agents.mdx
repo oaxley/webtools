@@ -25,13 +25,13 @@ This guide shows how to plug it in and what your agent can do with it.
 The MCP endpoint lives at `@@API_BASE@@/mcp`. It speaks **Streamable HTTP** in stateless
 mode: no session, no login, no API key. Five tools are registered:
 
-| Tool | What it does | Same as |
-|------|--------------|---------|
-| `calculate_cidr` | Network, broadcast, mask, host range and "is it publicly routable?" for an IPv4 CIDR | `GET /api/v1/ip` |
-| `decode_jwt` | Header, payload and an expiry analysis with human-readable dates. **No signature check.** | `POST /api/v1/jwt` |
-| `decode_x509` | Subject, issuer, validity, key, extensions (SAN, key usage…) and fingerprints of a PEM/DER certificate | `POST /api/v1/x509` |
-| `generate_uuid` | 1–10 UUIDs, version 7 (default) or 4 | `GET /api/v1/uuid` |
-| `generate_nanoid` | 1–10 NanoIDs with a chosen size and alphabet | `GET /api/v1/nanoid` |
+| Tool | What it does | REST equivalent |
+|------|--------------|-----------------|
+| `calculate_cidr` | Network, broadcast, mask, host range and "is it publicly routable?" for an IPv4 CIDR | `GET`<br />`/api/v1/ip` |
+| `decode_jwt` | Header, payload and an expiry analysis with human-readable dates. **No signature check.** | `POST`<br />`/api/v1/jwt` |
+| `decode_x509` | Subject, issuer, validity, key, extensions (SAN, key usage…) and fingerprints of a PEM/DER certificate | `POST`<br />`/api/v1/x509` |
+| `generate_uuid` | 1–10 UUIDs, version 7 (default) or 4 | `GET`<br />`/api/v1/uuid` |
+| `generate_nanoid` | 1–10 NanoIDs with a chosen size and alphabet | `GET`<br />`/api/v1/nanoid` |
 
 All three interfaces (the web pages, the REST API and MCP) call the same shared
 code, so the agent sees exactly the numbers you see in the browser.
@@ -181,22 +181,6 @@ A few design choices worth knowing:
   hex characters an LLM has no use for). Fingerprints are still included.
 - **Inputs are never echoed back.** Decoded JWTs and certificates don't include the
   original token or PEM in the response.
-
-## Test it with the bundled agent
-
-The WebTools repository includes a minimal Python agent (`agent/`) that prints
-every tool call and result, which is handy to see what your model actually sends.
-It needs an OpenAI-compatible endpoint:
-
-```bash
-cd agent
-uv sync
-export OPENAI_API_KEY=… OPENAI_MODEL=…
-MCP_URL=@@API_BASE@@/mcp uv run agent.py
-```
-
-You can attach files with `@path`, for example
-`decode @certs/server.pem and tell me what's wrong with it`.
 
 ## Before you paste secrets
 
