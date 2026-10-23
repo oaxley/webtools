@@ -133,7 +133,8 @@ characters whenever the alphabet size isn't a power of two (as with 57 or 62).
 ## NanoID or UUID? A decision guide
 
 - **Database primary key** → [UUID v7](/blog/uuid-v4-vs-v7). It sorts by time, has a
-  native 16-byte column type, and every tool understands it.
+  native 16-byte column type, and every tool understands it. If you'd rather have a
+  shorter sortable ID, see [ULID vs UUID v7](/blog/ulid-vs-uuid-v7).
 - **Public URL or share link** → NanoID, 16–21 characters, `url` alphabet with
   `safeEnds`.
 - **Code a human types or reads aloud** (invites, vouchers) → NanoID with

@@ -240,7 +240,7 @@ export function blogStatic(options: Options = {}): Plugin {
         image: await og('default', {
           eyebrow: 'Developer tools',
           title: 'Precise, privacy-first tools for engineers.',
-          description: 'Subnets, JWTs, X.509 certificates, UUIDs and NanoIDs.',
+          description: 'Subnets, JWTs, X.509 certificates, UUIDs, NanoIDs and ULIDs.',
           footer: [toolsLine, 'REST API', 'MCP server', 'No sign-up'],
         }),
         imageAlt: `${SITE_CONFIG.name}: developer tools in the browser, over a REST API and via MCP`,
@@ -249,7 +249,7 @@ export function blogStatic(options: Options = {}): Plugin {
       page('blog.html', {
         title: `Blog — ${SITE_CONFIG.name}`,
         description:
-          'Practical guides on JWTs, UUIDs, NanoIDs, X.509 certificates and giving AI agents real tools via MCP.',
+          'Practical guides on JWTs, UUIDs, NanoIDs, ULIDs, X.509 certificates and giving AI agents real tools via MCP.',
         url: `${siteUrl}/blog`,
         type: 'website',
         image: await og('blog', {

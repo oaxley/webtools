@@ -1,0 +1,154 @@
+---
+title: "ULID vs UUID v7: two ways to get sortable IDs"
+description: "ULIDs and UUID v7 both put a timestamp first so IDs sort by creation time. Here's how a ULID is built, what monotonic mode does, and how to choose between the two."
+date: 2026-10-22
+tags: [ulid, uuid, identifiers, database]
+tools: [ulid, uuid]
+cover:
+  label: ULID
+  accent: "#0369a1"
+---
+
+Random IDs are easy to create and terrible to index: every insert lands at a random
+spot in your B-tree. The fix is to put a **timestamp first**, so new IDs are always
+larger than old ones. [UUID v7](/blog/uuid-v4-vs-v7) does this inside the classic
+UUID format. **ULID** (Universally Unique Lexicographically Sortable Identifier) did
+it years earlier, with its own, more compact text form.
+
+This guide explains how a ULID is built, what "monotonic" means, and when to pick
+it over UUID v7.
+
+## Anatomy of a ULID
+
+A ULID is 128 bits, written as **26 characters**:
+
+```text
+01M5E4SJ7E5HVVJ0RDXN7SJ6PP
+|--------||--------------|
+ timestamp    randomness
+ 48 bits       80 bits
+ 10 chars      16 chars
+```
+
+- **Timestamp:** Unix time in milliseconds. `01M5E4SJ7E` is
+  **2026-10-21 02:31:38.478 UTC**. 48 bits last until the year 10889.
+- **Randomness:** 80 bits from a cryptographically secure random generator.
+
+The text uses **Crockford's base32**: the digits and upper-case letters, minus
+`I`, `L`, `O` and `U`. Those are left out because they're easy to confuse with
+`1` and `0` (and to avoid accidental words). The characters are in ASCII order, so
+**sorting ULIDs as plain strings sorts them by creation time**. No parsing needed:
+`ORDER BY id`, `sort`, or a file listing all do the right thing.
+
+ULIDs are also **case-insensitive**: decoders accept `01m5e4sj7e…` just as well. The
+canonical form is upper case.
+
+## Monotonic mode: same millisecond, still in order
+
+A busy service creates many IDs within one millisecond. With plain random bits, those
+IDs share a timestamp but sort in random order. The ULID spec defines a
+**monotonic** mode to fix this: when the millisecond hasn't changed, the generator
+reuses the previous random part **plus one** instead of drawing a new one.
+
+```text
+01M5E4SJ7E0NHQ3XN6Y2QX7RX3
+01M5E4SJ7E0NHQ3XN6Y2QX7RX4
+01M5E4SJ7E0NHQ3XN6Y2QX7RX5
+          ^ same millisecond, random part +1 each time
+```
+
+The WebTools generator is monotonic by default, so a batch always comes back in
+creation order. Two details:
+
+- The guarantee is **per generator** (per process). IDs from two machines in the same
+  millisecond are still unique, but their relative order isn't defined.
+- In monotonic mode, IDs from the same millisecond are **predictable from each
+  other**: see one, and you can guess the next. Turn monotonic off if that matters
+  more to you than strict ordering.
+
+## ULID vs UUID v7
+
+Both put a millisecond timestamp in the first 48 bits, so both index well. The
+differences are in the format around it:
+
+| | ULID | UUID v7 |
+|---|---|---|
+| Text length | **26** characters | 36 (32 without hyphens) |
+| Alphabet | Crockford base32, case-insensitive | hex |
+| Random bits | **80** | 74 (62 + 12-bit counter) |
+| Standard | community spec | RFC 9562 (IETF) |
+| Native database type | none | `uuid` in PostgreSQL, SQL Server… |
+| Built into languages | libraries | PostgreSQL 18, Python 3.14, many libraries |
+| Sorts as text | yes | yes (lower-case hex) |
+
+In short, **ULIDs are nicer to look at and to type**: shorter, no hyphens, no
+ambiguous characters, and double-click selects them whole. **UUID v7 fits existing
+systems better**: an official standard, a native 16-byte column type, and support in
+every ORM and validator that already knows UUIDs.
+
+### Storing a ULID in a UUID column
+
+A ULID and a UUID are both 128 bits, so you can store a ULID in a `uuid` column by
+converting the bits to hex. The example above becomes:
+
+```text
+01M5E4SJ7E5HVVJ0RDXN7SJ6PP  →  01a15c4c-c8ee-2c77-b903-0ded4f991ad6
+```
+
+Ordering survives the conversion, since the timestamp is still in the first 48 bits.
+But the result isn't a valid v7 UUID (the version and variant bits are just random
+data), so strict UUID validators may reject it. If you want a `uuid` column, generating
+UUID v7 directly is simpler.
+
+<Callout type="tip">
+Store IDs as 16 bytes when you can (`uuid`, `BINARY(16)`, `BLOB`). As text, a ULID
+takes 26 bytes and a UUID 36. Either way, compare them in a case-consistent form.
+</Callout>
+
+## Generating ULIDs
+
+**In the browser.** The <ToolLink tool="ulid" /> creates up to 10 ULIDs at a time,
+monotonic by default, with a lower-case option. Everything runs locally; nothing is
+sent to a server.
+
+<TryIt tool="ulid" />
+
+**From scripts and CI**, use the REST API:
+
+```bash
+curl -s '@@API_BASE@@/api/v1/ulid?count=3'
+```
+
+```json
+{
+  "monotonic": true,
+  "lowercase": false,
+  "count": 3,
+  "ulids": [
+    "01M5K5KH9NH0KR32YSK5CE8Z5G",
+    "01M5K5KH9NH0KR32YSK5CE8Z5H",
+    "01M5K5KH9NH0KR32YSK5CE8Z5J"
+  ]
+}
+```
+
+| Parameter | Values | Default |
+|---|---|---|
+| `count` | `1`–`10` | `1` |
+| `monotonic` | `true` / `false` | `true` |
+| `lowercase` | `true` / `false` | `false` |
+
+Responses are sent with `Cache-Control: no-store`, so no proxy will ever replay an ID
+it has already handed out.
+
+**From an AI agent**, call the `generate_ulid` MCP tool with `{ "count": 5 }`. See the
+[MCP guide](/blog/mcp-server-for-ai-agents) for setup.
+
+## Quick decision guide
+
+- **Database primary key, PostgreSQL or another database with a `uuid` type** → UUID v7
+- **IDs that people read, copy or type** (logs, support tickets, CLI output) → ULID
+- **Event or log IDs that should sort as text** (file names, object-store keys) → ULID
+- **The rest of your stack already speaks UUID** → UUID v7. Don't fight the schema.
+- **Creation time must stay private** → neither; use a [random UUID v4 or a NanoID](/blog/nanoid-vs-uuid)
+- **Secret token** → none of the above; use 256 bits from a CSPRNG

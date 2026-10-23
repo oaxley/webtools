@@ -4,7 +4,7 @@ description: "Connect Claude, Cursor, OpenCode or your own agent to WebTools ove
 date: 2026-10-20
 order: 1
 tags: [mcp, ai-agents, api]
-tools: [cidr, jwt, x509, uuid, nanoid]
+tools: [cidr, jwt, x509, uuid, nanoid, ulid]
 cover:
   label: MCP
   accent: "#4f46e5"
@@ -23,7 +23,7 @@ This guide shows how to plug it in and what your agent can do with it.
 ## What the server exposes
 
 The MCP endpoint lives at `@@API_BASE@@/mcp`. It speaks **Streamable HTTP** in stateless
-mode: no session, no login, no API key. Five tools are registered:
+mode: no session, no login, no API key. Six tools are registered:
 
 | Tool | What it does | REST equivalent |
 |------|--------------|-----------------|
@@ -32,6 +32,7 @@ mode: no session, no login, no API key. Five tools are registered:
 | `decode_x509` | Subject, issuer, validity, key, extensions (SAN, key usage…) and fingerprints of a PEM/DER certificate | `POST`<br />`/api/v1/x509` |
 | `generate_uuid` | 1–10 UUIDs, version 7 (default) or 4 | `GET`<br />`/api/v1/uuid` |
 | `generate_nanoid` | 1–10 NanoIDs with a chosen size and alphabet | `GET`<br />`/api/v1/nanoid` |
+| `generate_ulid` | 1–10 ULIDs, sortable by creation time (monotonic by default) | `GET`<br />`/api/v1/ulid` |
 
 All three interfaces (the web pages, the REST API and MCP) call the same shared
 code, so the agent sees exactly the numbers you see in the browser.
@@ -113,7 +114,7 @@ uses the small `mcp-remote` bridge. If your plan offers custom connectors, you c
 also add the URL directly under **Settings → Connectors**.
 </Callout>
 
-Restart or reload the client, and the five tools should appear in its tool list.
+Restart or reload the client, and the six tools should appear in its tool list.
 
 ## Try a few prompts
 
@@ -130,6 +131,8 @@ agent pick:
   → `generate_uuid` with `count: 5` returns time-ordered v7 UUIDs, a good fit for database keys.
 - *"Give me 3 short invite codes people can type without confusing 0 and O."*
   → `generate_nanoid` with `alphabet: "nolookalikes"`.
+- *"I need 10 event IDs for these log fixtures, and they must sort in order."*
+  → `generate_ulid` with `count: 10` returns monotonic ULIDs, already in creation order.
 
 The agent then explains the result in plain language, but the facts come from
 the tool.

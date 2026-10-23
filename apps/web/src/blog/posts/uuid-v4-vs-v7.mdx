@@ -4,7 +4,7 @@ description: "Random UUIDs scatter inserts all over your indexes. Version 7 puts
 date: 2026-10-20
 order: 2
 tags: [uuid, database, identifiers]
-tools: [uuid, nanoid]
+tools: [uuid, nanoid, ulid]
 ---
 
 UUIDs are the default answer to "how do I generate an ID without asking the
@@ -147,5 +147,6 @@ in every modern runtime, and v7 is built into PostgreSQL 18 (`uuidv7()`), Python
 
 - **Database primary key, internal use** → v7
 - **Public identifier where creation time should stay private** → v4
+- **Sortable like v7, but shorter and easier to read** → consider a [ULID](/blog/ulid-vs-uuid-v7)
 - **Short, URL-friendly or human-facing ID** → neither; see [NanoID vs UUID](/blog/nanoid-vs-uuid)
 - **Secret token** → none of the above; use 256 bits from a CSPRNG
