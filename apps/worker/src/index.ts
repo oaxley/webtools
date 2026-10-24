@@ -13,6 +13,7 @@ import ip from "./routes/ip";
 import jwt from "./routes/jwt";
 import mcp from "./routes/mcp";
 import nanoid from "./routes/nanoid";
+import password from "./routes/password";
 import ulid from "./routes/ulid";
 import uuid from "./routes/uuid";
 import x509 from "./routes/x509";
@@ -32,6 +33,7 @@ app.route("/api/v1/base64", base64);
 app.route("/api/v1/base32", base32);
 app.route("/api/v1/base58", base58);
 app.route("/api/v1/hash", hash);
+app.route("/api/v1/password", password);
 
 // MCP (Model Context Protocol) endpoint. Lives at the conventional
 // `/mcp` path, outside the versioned API namespace, so standard MCP

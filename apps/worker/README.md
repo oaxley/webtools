@@ -18,11 +18,12 @@ All versioned under `/api/v1`:
 | `GET /api/v1/ulid?count=1..10&monotonic=false&lowercase=true` | ULID generator — returns `{ monotonic, lowercase, count, ulids }`. Defaults to one upper-case ULID in monotonic mode (IDs from the same millisecond keep strictly increasing). At most 10 per batch. Responses are `Cache-Control: no-store`. |
 | `POST /api/v1/base64` · `/api/v1/base32` · `/api/v1/base58` | Base encoders / decoders. JSON or form body: `{ data, operation?: "encode" \| "decode", inputFormat?: "text" \| "hex", urlSafe?, padding?, variant?: "rfc4648" \| "crockford" }` (`urlSafe` is Base64 only, `padding` Base64/Base32, `variant` Base32). Encode returns `{ encoding, operation, output, inputBytes }`; decode returns `{ encoding, operation, text, hex, bytes }` with `text: null` when the bytes aren't valid UTF-8. Decoding ignores whitespace and missing padding. Input is capped at 256 KiB (Base64/Base32) or 1 KiB (Base58, whose conversion is quadratic), bodies at 1 MiB. POST keeps the payload out of URLs and logs; responses are `Cache-Control: no-store`. |
 | `POST /api/v1/hash` | Hash generator. JSON or form body: `{ data, algorithm?: "md5" \| "sha1" \| "sha224" \| "sha256" \| "sha384" \| "sha512" \| "sha3-256" \| "sha3-512" \| "crc32" \| "all", inputFormat?: "text" \| "hex", outputFormat?: "hex" \| "base64", uppercase?, hmacKey?, hmacKeyFormat?: "text" \| "hex" }` (default `sha256`). One algorithm returns `{ algorithm, hmac, digest, format, bits, inputBytes }`; `all` returns `{ hmac, format, inputBytes, hashes: [{ algorithm, digest, bits }] }`. With `hmacKey` the result is an HMAC (not available for CRC-32, which `all` then skips). Input is capped at 64 KiB, bodies at 256 KiB. POST keeps the payload and key out of URLs and logs; responses are `Cache-Control: no-store`. |
+| `GET /api/v1/password?mode=random\|passphrase&count=1..20&…` | Password generator — returns the resolved settings plus `{ entropyBits, count, passwords }`. **Random** (default): `length=4..128` (default 20), `sets=lower,upper,digits,symbols` (any subset, default all), `excludeAmbiguous=true` drops `0 O 1 l I \|`, `requireEachSet=false` allows passwords missing a set (default: at least one of each). **Passphrase**: `words=3..12` (default 6) from the EFF large wordlist, `separator` (1–3 characters, no letters or digits, default `-`), `capitalize=true`, `includeNumber=true`. `entropyBits` is exact, since every choice is uniform. At most 20 per batch; responses are `Cache-Control: no-store`. There is deliberately no strength-check endpoint: passwords people chose should never be sent to a server. |
 
 ## MCP endpoint
 
 `POST /mcp` exposes the IP subnet calculator, the JWT decoder, the
-X.509 certificate decoder, the UUID, NanoID and ULID generators, the Base64 / Base32 / Base58 encoders and the hash generator as Model Context Protocol tools. The transport is **Streamable HTTP** in **stateless, JSON-response
+X.509 certificate decoder, the UUID, NanoID and ULID generators, the Base64 / Base32 / Base58 encoders, the hash generator and the password generator as Model Context Protocol tools. The transport is **Streamable HTTP** in **stateless, JSON-response
 mode** — each request is self-contained, no session id, no SSE replay.
 No auth; the endpoint is public, same posture as `/api/v1/*`.
 
@@ -40,6 +41,7 @@ No auth; the endpoint is public, same posture as `/api/v1/*`.
 | `convert_base32` | `{ operation, data, inputFormat?, variant?: "rfc4648" \| "crockford", padding?: boolean }` | Same shapes and limits as `POST /api/v1/base32`. |
 | `convert_base58` | `{ operation, data, inputFormat? }` (Bitcoin alphabet) | Same shapes and limits as `POST /api/v1/base58`. |
 | `compute_hash` | `{ data: string, algorithm?: "md5" \| … \| "crc32" \| "all", inputFormat?, outputFormat?: "hex" \| "base64", uppercase?, hmacKey?, hmacKeyFormat? }` | Same shapes and limits as `POST /api/v1/hash`. Invalid input surfaces verbatim as `isError: true`. |
+| `generate_password` | `{ mode?: "random" \| "passphrase", count?, length?, sets?: ("lower" \| "upper" \| "digits" \| "symbols")[], excludeAmbiguous?, requireEachSet?, words?, separator?, capitalize?, includeNumber? }` (options of the other mode are ignored) | Same shape and limits as `GET /api/v1/password`. Generation only. |
 
 ### Hooking it up in an MCP client
 

@@ -76,6 +76,7 @@ describe("POST /mcp", () => {
       "decode_jwt",
       "decode_x509",
       "generate_nanoid",
+      "generate_password",
       "generate_ulid",
       "generate_uuid",
     ]);
@@ -83,6 +84,7 @@ describe("POST /mcp", () => {
     expect(byName.compute_hash.inputSchema.properties).toHaveProperty("hmacKey");
     expect(byName.convert_base32.inputSchema.properties).toHaveProperty("variant");
     expect(byName.convert_base58.inputSchema.properties).not.toHaveProperty("padding");
+    expect(byName.generate_password.inputSchema.properties).toHaveProperty("words");
     expect(byName.generate_ulid.description).toMatch(/ULID/);
     expect(byName.generate_ulid.inputSchema.properties).toHaveProperty(
       "monotonic",
@@ -504,6 +506,55 @@ describe("POST /mcp — generate_nanoid", () => {
       expect(failed).toBe(true);
     },
   );
+});
+
+async function callGeneratePassword(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 45,
+    method: "tools/call",
+    params: { name: "generate_password", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — generate_password", () => {
+  it("defaults to one 20-character random password", async () => {
+    const body = await callGeneratePassword({});
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ mode: "random", length: 20, count: 1 });
+    expect(payload.passwords[0]).toHaveLength(20);
+    expect(payload.entropyBits).toBeGreaterThan(130);
+  });
+
+  it("generates passphrases and ignores options of the other mode", async () => {
+    const body = await callGeneratePassword({
+      mode: "passphrase",
+      words: 5,
+      separator: " ",
+      length: 99,
+      count: 3,
+    });
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ mode: "passphrase", words: 5, count: 3 });
+    expect(payload).not.toHaveProperty("length");
+    for (const p of payload.passwords) expect(p.split(" ")).toHaveLength(5);
+  });
+
+  it.each([
+    { count: 21 },
+    { length: 3 },
+    { sets: [] },
+    { sets: ["emoji"] },
+    { mode: "passphrase", words: 13 },
+    { mode: "passphrase", separator: "a" },
+  ])("rejects %o", async (args) => {
+    const body = await callGeneratePassword(args);
+    const failed = body.error !== undefined || body.result?.isError === true;
+    expect(failed).toBe(true);
+  });
 });
 
 async function callGenerateUlid(args: Record<string, unknown>) {

@@ -40,6 +40,11 @@
  * - `compute_hash(data, algorithm?, inputFormat?, outputFormat?,
  *   uppercase?, hmacKey?, hmacKeyFormat?)` — mirrors `/api/v1/hash`:
  *   MD5, SHA-1/2/3 or CRC-32 digests (or HMAC), one algorithm or `all`.
+ * - `generate_password(mode?, count?, length?, sets?, excludeAmbiguous?,
+ *   requireEachSet?, words?, separator?, capitalize?, includeNumber?)` —
+ *   mirrors `/api/v1/password`: random passwords or EFF passphrases, with
+ *   their exact entropy. Generation only; there is no strength check, so
+ *   agents never get into the habit of sending real passwords anywhere.
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -48,6 +53,7 @@ import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/sdk/validatio
 import { z } from "zod";
 import { API_MAX_BYTES } from "./encoding";
 import { API_MAX_HASH_BYTES, runHash } from "./hash";
+import { runPassword } from "./password";
 import {
   calculateCIDR,
   convertEncoding,
@@ -59,6 +65,7 @@ import {
   HASH_ALGORITHMS,
   isRoutable,
   MAX_NANOID_COUNT,
+  MAX_PASSWORD_COUNT,
   MAX_ULID_COUNT,
   MAX_UUID_COUNT,
   NANOID_ALPHABET_NAMES,
@@ -66,6 +73,16 @@ import {
   NANOID_MAX_SIZE,
   NANOID_MIN_SIZE,
   type NanoIdAlphabet,
+  PASSPHRASE_DEFAULT_WORDS,
+  PASSPHRASE_MAX_SEPARATOR,
+  PASSPHRASE_MAX_WORDS,
+  PASSPHRASE_MIN_WORDS,
+  PASSWORD_CHARSET_NAMES,
+  PASSWORD_DEFAULT_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  type PasswordCharset,
+  type PasswordOptions,
   toJwtJsonSummary,
   toX509ApiResponse,
 } from "@webtools/core";
@@ -490,6 +507,102 @@ function buildServer(): McpServer {
         );
       } catch (e) {
         return errorResult(e, "Invalid hash request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_password",
+    {
+      title: "Password Generator",
+      description:
+        `Generate 1 to ${MAX_PASSWORD_COUNT} strong passwords with a cryptographic RNG: random ` +
+        `characters (default ${PASSWORD_DEFAULT_LENGTH} from lower, upper, digits and symbols, at least ` +
+        `one of each) or a passphrase of words from the EFF large wordlist (default ` +
+        `${PASSPHRASE_DEFAULT_WORDS} words, ~12.9 bits each). Returns the resolved settings, the exact ` +
+        "`entropyBits` of each password, `count` and `passwords`. Useful for test fixtures and dev " +
+        "configuration; for real accounts, prefer the user's password manager.",
+      inputSchema: {
+        mode: z
+          .enum(["random", "passphrase"])
+          .optional()
+          .describe("`random` characters (default) or a `passphrase` of words"),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_PASSWORD_COUNT)
+          .optional()
+          .describe(`How many to generate, 1 to ${MAX_PASSWORD_COUNT} (default 1)`),
+        length: z
+          .number()
+          .int()
+          .min(PASSWORD_MIN_LENGTH)
+          .max(PASSWORD_MAX_LENGTH)
+          .optional()
+          .describe(
+            `Random mode: characters, ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} (default ${PASSWORD_DEFAULT_LENGTH})`,
+          ),
+        sets: z
+          .array(z.enum(PASSWORD_CHARSET_NAMES as [PasswordCharset, ...PasswordCharset[]]))
+          .min(1)
+          .optional()
+          .describe("Random mode: character sets to use (default all of lower, upper, digits, symbols)"),
+        excludeAmbiguous: z
+          .boolean()
+          .optional()
+          .describe("Random mode: leave out look-alikes 0 O 1 l I | (default false)"),
+        requireEachSet: z
+          .boolean()
+          .optional()
+          .describe("Random mode: at least one character from each set (default true)"),
+        words: z
+          .number()
+          .int()
+          .min(PASSPHRASE_MIN_WORDS)
+          .max(PASSPHRASE_MAX_WORDS)
+          .optional()
+          .describe(
+            `Passphrase mode: words, ${PASSPHRASE_MIN_WORDS} to ${PASSPHRASE_MAX_WORDS} (default ${PASSPHRASE_DEFAULT_WORDS})`,
+          ),
+        separator: z
+          .string()
+          .min(1)
+          .max(PASSPHRASE_MAX_SEPARATOR)
+          .optional()
+          .describe("Passphrase mode: between words, 1 to 3 characters, no letters or digits (default '-')"),
+        capitalize: z.boolean().optional().describe("Passphrase mode: capitalise each word (default false)"),
+        includeNumber: z
+          .boolean()
+          .optional()
+          .describe("Passphrase mode: append one random digit to one word (default false)"),
+      },
+    },
+    (args) => {
+      try {
+        // Same shape as GET /api/v1/password. Options that don't apply to
+        // the chosen mode are ignored, like the route's query parameters.
+        const options: PasswordOptions =
+          args.mode === "passphrase"
+            ? {
+                mode: "passphrase",
+                count: args.count,
+                words: args.words,
+                separator: args.separator,
+                capitalize: args.capitalize,
+                includeNumber: args.includeNumber,
+              }
+            : {
+                mode: "random",
+                count: args.count,
+                length: args.length,
+                sets: args.sets,
+                excludeAmbiguous: args.excludeAmbiguous,
+                requireEachSet: args.requireEachSet,
+              };
+        return jsonResult(runPassword(options));
+      } catch (e) {
+        return errorResult(e, "Invalid password request");
       }
     },
   );
