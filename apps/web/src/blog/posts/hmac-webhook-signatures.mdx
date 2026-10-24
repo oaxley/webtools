@@ -1,0 +1,193 @@
+---
+title: "HMAC explained: how webhook signatures actually work"
+description: "Anyone can POST to your webhook URL. Here's how HMAC signatures prove a request really came from GitHub or Stripe, how to verify one step by step, and the mistakes that make verification fail."
+date: 2026-10-23
+tags: [hmac, webhooks, security, api]
+tools: [hash, jwt]
+cover:
+  label: HMAC
+  accent: "#b45309"
+---
+
+Your webhook endpoint is a public URL. GitHub calls it when someone opens a pull
+request, Stripe calls it when a payment succeeds, and so can anyone else who finds
+the URL. Before you mark an order as paid, you need proof that the request came from
+the provider and that nobody changed the body on the way.
+
+Nearly every provider solves this the same way: an **HMAC signature** in a header.
+This guide explains what HMAC is, verifies a real GitHub signature step by step, and
+lists the mistakes that cause most "signature mismatch" errors.
+
+## The shared secret
+
+When you set up the webhook, the provider gives you (or asks you for) a **secret**.
+Only you and the provider know it. For every delivery, the provider computes a
+signature from the secret and the exact request body, and sends it along:
+
+```http
+POST /webhooks/github HTTP/1.1
+Content-Type: application/json
+X-Hub-Signature-256: sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17
+
+Hello, World!
+```
+
+You compute the same signature with your copy of the secret. If the two match, the
+sender knew the secret and the body is unchanged. An attacker can change the body,
+but can't produce the matching signature without the secret.
+
+## Why not just hash the secret and the body?
+
+The obvious design is `sha256(secret + body)`. It looks fine, and it's broken.
+
+SHA-256 (like MD5 and SHA-1) processes the input in blocks and outputs its internal
+state at the end. From a digest, an attacker can **resume** the computation and
+append data: knowing only `sha256(secret + body)` and the length of the secret, they
+can compute a valid `sha256(secret + body + padding + anything)`. This is a
+**length-extension attack**, covered in
+[our guide to hash functions](/blog/hash-functions-compared).
+
+## HMAC: two hashes and a key
+
+**HMAC** (RFC 2104) fixes this with a simple construction:
+
+```text
+HMAC(key, message) = H( (key ⊕ opad) ‖ H( (key ⊕ ipad) ‖ message ) )
+```
+
+In words:
+
+1. Pad the key to the hash's block size (64 bytes for SHA-256). Keys longer than that
+   are hashed first.
+2. **Inner hash:** XOR the key with `0x36` bytes, append the message, and hash.
+3. **Outer hash:** XOR the key with `0x5c` bytes, append the inner digest, and hash
+   again.
+
+The outer hash seals the result: extending the inner hash gets an attacker nothing,
+because they can't recompute the outer one without the key. HMAC works with any hash.
+GitHub, Stripe and Slack use **HMAC-SHA256**, and the result is as long as the hash
+(256 bits, 64 hex digits).
+
+<Callout type="tip" title="HMAC-MD5 and HMAC-SHA1 are still safe">
+HMAC doesn't rely on the collision resistance that broke MD5 and SHA-1, so
+HMAC-SHA1 (still used by some older APIs, such as Twilio's) has no known practical
+attack. For anything new, pick HMAC-SHA256.
+</Callout>
+
+## Verify a GitHub signature by hand
+
+GitHub's documentation uses this example:
+
+- **Secret:** `It's a Secret to Everybody`
+- **Body:** `Hello, World!`
+- **Header:** `X-Hub-Signature-256: sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17`
+
+Open the hash generator with the body and the secret pre-filled, and HMAC-SHA256
+selected:
+
+<TryIt
+  tool="hash"
+  query="alg=sha256&hmac=1"
+  fragment={{ input: "Hello, World!", key: "It's a Secret to Everybody" }}
+>
+  The digest should be `757107ea…3e17`, the part after `sha256=` in the header.
+</TryIt>
+
+Change one character of the body, or of the secret, and the digest changes
+completely. That's the whole check. Both values stay in your browser: the page
+removes them from the address bar as soon as it reads them.
+
+## Verify it in code
+
+Three rules apply in every language:
+
+1. Hash the **raw body bytes**, exactly as received.
+2. Use HMAC from your standard library; don't build it yourself.
+3. Compare with a **constant-time** function.
+
+<Tabs>
+<Tab label="Node.js">
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+// `rawBody` must be the Buffer as received, e.g. express.raw({ type: 'application/json' })
+function verifyGitHub(rawBody, header, secret) {
+  const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex')
+  const a = Buffer.from(expected)
+  const b = Buffer.from(header ?? '')
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+```
+</Tab>
+<Tab label="Python">
+```python
+import hashlib, hmac
+
+def verify_github(raw_body: bytes, header: str, secret: str) -> bool:
+    expected = "sha256=" + hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header or "")
+```
+</Tab>
+<Tab label="Go">
+```go
+func verifyGitHub(rawBody []byte, header, secret string) bool {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(rawBody)
+	expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	return hmac.Equal([]byte(expected), []byte(header))
+}
+```
+</Tab>
+<Tab label="API">
+```bash
+curl -s @@API_BASE@@/api/v1/hash \
+  -H 'Content-Type: application/json' \
+  -d '{"data": "Hello, World!", "algorithm": "sha256", "hmacKey": "It'\''s a Secret to Everybody"}'
+```
+</Tab>
+</Tabs>
+
+The API and the `compute_hash` MCP tool are handy for **debugging** a mismatch with
+test secrets. In production, verify in your own code: your live webhook secret
+shouldn't leave your servers.
+
+## Why "signature mismatch"? A checklist
+
+Most failures come from hashing slightly different bytes than the provider did.
+
+- **The body was parsed and re-serialised.** Frameworks love to parse JSON before your
+  handler runs. `JSON.stringify(req.body)` changes spacing, key order and escaping, and
+  so the digest. Keep the raw bytes (in Express, `express.raw()` on that route; in
+  Next.js or Flask, read the raw request body).
+- **Hex vs Base64.** GitHub, Stripe and Slack send **hex** digests. Shopify
+  (`X-Shopify-Hmac-Sha256`) and Twilio send **Base64**. Same HMAC, different text.
+- **A prefix or a signed string you skipped.**
+  - GitHub prefixes the digest with `sha256=`.
+  - Stripe signs `timestamp + "." + body` and sends `Stripe-Signature: t=…,v1=…`.
+  - Slack signs `v0:timestamp:body` and sends `X-Slack-Signature: v0=…`.
+- **The wrong secret format.** Most providers mean the secret **as text**, including
+  prefixes like `whsec_`. A few hand out hex or Base64 keys meant to be decoded first;
+  the generator's key field has a Text/Hex switch for exactly this.
+- **Comparing with `==`.** It works, but it returns as soon as one character differs,
+  so response times leak how much of a guessed signature was right. Use
+  `timingSafeEqual`, `compare_digest` or `hmac.Equal`.
+
+## Stop replays with the timestamp
+
+A valid signature proves who sent a request, not *when*. An attacker who captures a
+genuine delivery can send it again. That's why Stripe and Slack sign a **timestamp**
+along with the body: reject requests whose timestamp is more than about five minutes
+old, and the captured request soon becomes useless. If the provider sends a delivery
+ID (GitHub's `X-GitHub-Delivery`), store processed IDs too, so a retry never charges
+twice.
+
+## You've seen this before: HS256 JWTs
+
+A JWT signed with `HS256` is exactly this construction:
+**HMAC-SHA256** with the shared secret, over the string `base64url(header)` + `.` +
+`base64url(payload)`. The third part of the token is that digest, Base64URL-encoded. It
+also explains [why decoding a JWT isn't verifying it](/blog/jwt-decoding-is-not-verifying):
+anyone can read the payload, but only someone with the secret can produce the
+signature.
+
+<TryIt tool="jwt">Decode a JWT and look at its algorithm and signature.</TryIt>

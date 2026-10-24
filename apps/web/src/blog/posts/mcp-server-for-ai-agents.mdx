@@ -142,7 +142,8 @@ agent pick:
   instead of the model decoding base64 in its head.
 - *"Check this webhook: does its signature match HMAC-SHA256 of the body with our secret?"*
   → `compute_hash` with `hmacKey` computes the real HMAC. A model can't compute a hash
-  in its head, and a guessed one looks just as plausible as the real thing.
+  in its head, and a guessed one looks just as plausible as the real thing. (More on
+  [how webhook signatures work](/blog/hmac-webhook-signatures).)
 
 The agent then explains the result in plain language, but the facts come from
 the tool.
