@@ -1,0 +1,152 @@
+---
+title: "Base64, Base32 or Base58: choosing a binary-to-text encoding"
+description: "How Base64 turns 3 bytes into 4 characters, why JWTs use the URL-safe variant, why TOTP secrets are Base32 and Bitcoin addresses Base58, and why none of them hides anything."
+date: 2026-10-23
+tags: [encoding, base64, data]
+tools: [base64, base32, base58]
+cover:
+  label: B64
+  accent: "#db2777"
+---
+
+Keys, hashes, images and encrypted blobs are **bytes**, and many places only accept
+**text**: JSON fields, email, URLs, YAML files, QR codes, a person reading a code
+aloud. A binary-to-text encoding bridges the gap. It maps bytes onto a small set of
+safe characters, and back again without losing a bit.
+
+Base64, Base32 and Base58 all do this. They differ in size, in which characters they
+use, and in how easy the result is for people to handle.
+
+## How Base64 works
+
+Base64 uses 64 characters: `A–Z`, `a–z`, `0–9`, `+` and `/`. Since 64 = 2⁶, each
+character carries exactly **6 bits**. Three bytes (24 bits) become four characters:
+
+```text
+text        M         a         n
+bytes    01001101  01100001  01101110
+6 bits   010011 010110 000101 101110
+values     19     22      5     46
+Base64      T      W      F      u
+```
+
+So `Man` becomes `TWFu`, and every 3 bytes of input cost 4 characters: **+33%**.
+
+When the input isn't a multiple of 3 bytes, the last group is padded with `=`:
+`Ma` becomes `TWE=` and `M` becomes `TQ==`. The padding carries no data; it just
+keeps the length a multiple of 4. Many decoders (including ours) accept input
+without it.
+
+<TryIt tool="base64" fragment={{ input: "Hello, World!" }}>
+  Encode some text, then switch to Base32 and Base58: the input follows you.
+</TryIt>
+
+## Base64URL: the variant in your JWTs
+
+`+` and `/` mean something in URLs and file names, and `=` does too in query
+strings. **Base64URL** (RFC 4648 §5) swaps in `-` and `_` and usually drops the
+padding:
+
+```text
+bytes       fb ff bf
+Base64      +/+/
+Base64URL   -_-_
+```
+
+This is the encoding of every part of a [JWT](/blog/jwt-decoding-is-not-verifying),
+which is why a token never contains `+`, `/` or `=`. If a Base64 decoder chokes on a
+`-`, you're holding Base64URL. Our decoder accepts both alphabets, so you don't have
+to know which one you have.
+
+## Base32: for humans and case-insensitive systems
+
+Base32 has 32 characters, 5 bits each, so 5 bytes become 8 characters: **+60%**.
+That's bigger than Base64, but the alphabet is **one case only**, `A–Z` and `2–7`
+(no `0`, `1` or `8`, which look like `O`, `I` and `B`). That makes it right for:
+
+- **TOTP secrets.** The key behind your authenticator app's 6-digit codes is a Base32
+  string like `JBSWY3DPEHPK3PXP`. It's what you type in when you can't scan the QR code.
+- **Case-insensitive places:** DNS names, some file systems, and anything people
+  type or read aloud.
+
+**Crockford's Base32** is a variant with digits first (`0–9`, then letters without
+`I`, `L`, `O` and `U`). When decoding, it reads `O` as 0 and `I`/`L` as 1, so typing
+mistakes still decode correctly. [ULIDs](/blog/ulid-vs-uuid-v7) use it, and because
+the alphabet is in ASCII order, encoded values sort the same way as the bytes.
+
+```text
+Hello, World!   RFC 4648   JBSWY3DPFQQFO33SNRSCC===
+                Crockford  91JPRV3F5GG5EVVJDHJ22
+```
+
+## Base58: no look-alikes, no punctuation
+
+Base58 is Base64 with `0`, `O`, `I`, `l`, `+` and `/` removed. It was designed for
+**Bitcoin addresses**, and is also used by IPFS identifiers and Solana keys. Two
+nice properties come from the alphabet:
+
+- No characters that look alike in common fonts, so copying an address by hand is safer.
+- No punctuation, so a **double-click selects the whole value** in a browser or a
+  terminal.
+
+58 isn't a power of two, so Base58 can't work in fixed groups of bits. It treats the
+whole input as one big number and converts it to base 58, like converting decimal to
+hex. That has two consequences:
+
+- **Leading zero bytes** would vanish from a number, so each one is written as a `1`:
+  bytes `00 00 ff` encode as `115Q`.
+- **The cost grows with the square of the length.** That's fine for 20–64 bytes of key
+  or hash, and slow for megabytes. Base58 is meant for short values.
+
+## Base64 is not encryption
+
+Every one of these encodings is **public and reversible**: no key, no secret, nothing
+to crack. Yet encoded values regularly get treated as if they were protected:
+
+- **Kubernetes Secrets** store values in Base64. `czNjcjN0LWRiLXBhc3N3MHJk` in a
+  manifest committed to Git is the database password, readable by anyone with the repo.
+- **HTTP Basic auth** sends `Authorization: Basic YWRtaW46aHVudGVyMg==`, which is just
+  `admin:hunter2`. Only TLS protects it on the wire.
+- **JWT payloads** are Base64URL JSON. Anyone holding the token can read the claims.
+
+<TryIt tool="base64" query="mode=decode" fragment={{ input: "YWRtaW46aHVudGVyMg==" }}>
+  Decode that Basic auth header and see for yourself.
+</TryIt>
+
+<Callout type="warning" title="Encoding is for transport, not secrecy">
+If a value must stay secret, encrypt it (or keep it in a secrets manager) and treat
+the Base64 form exactly like the plain text: out of logs, out of Git, out of
+screenshots.
+</Callout>
+
+## Which one should you pick?
+
+The same 32-byte SHA-256 digest in each encoding:
+
+```text
+hex        ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad   64 chars
+Base64     ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=                       44 chars
+Base32     XJ4BNP4PAHH6UQKBIDPF3LRCEOYAGYNDSYLXVHFUCD7WD4QACWWQ               52 chars
+Base58     DYu3G8aGTMBW1WrTw76zxQJQU4DHLw9MLyy7peG4LKkY                       44 chars
+```
+
+| | Base64 | Base64URL | Base32 | Base58 |
+|---|---|---|---|---|
+| Size overhead | +33% | +33% | +60% | ≈ +37% |
+| Case-sensitive | yes | yes | **no** | yes |
+| Safe in URLs | no | **yes** | yes | **yes** |
+| Easy to read aloud or type | no | no | **yes** | fairly |
+| Fast on large data | **yes** | **yes** | **yes** | no |
+| Typical uses | email, data URLs, PEM, JSON payloads | JWTs, URL tokens | TOTP secrets, ULIDs | Bitcoin, IPFS, Solana |
+
+A rule of thumb:
+
+- **Machines exchanging data:** Base64, or Base64URL anywhere near a URL.
+- **People typing it, or a case-insensitive system:** Base32.
+- **Short identifiers people copy and paste:** Base58.
+- **Hashes and debugging output:** plain hex is still the most readable, and what
+  every command-line tool prints.
+
+From a script, the same conversions are at `POST @@API_BASE@@/api/v1/base64` (and
+`base32`, `base58`), and AI agents can call them as the `convert_base64`,
+`convert_base32` and `convert_base58` [MCP tools](/blog/mcp-server-for-ai-agents).
