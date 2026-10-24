@@ -1,0 +1,206 @@
+---
+title: "MD5, SHA-1, SHA-256 or SHA-3: which hash should you use?"
+description: "What a hash function promises, why MD5 and SHA-1 are broken, how SHA-2 and SHA-3 differ, where CRC-32 fits, and why none of them belongs anywhere near a password."
+date: 2026-10-23
+tags: [hashing, security, checksums]
+tools: [hash]
+cover:
+  label: "#"
+  accent: "#b45309"
+---
+
+A hash function turns any input, a word or a 4 GB disk image, into a short,
+fixed-size fingerprint called a **digest**. You meet them everywhere: download
+checksums, Git commits, TLS certificates, password databases, cache keys, webhook
+signatures. But "hash" covers algorithms from 1992 to 2015, and some of them are
+broken.
+
+This guide explains what a good hash promises, which ones still keep those promises,
+and what to pick for each job.
+
+## What a hash promises
+
+Hash `abc` and `abd` with SHA-256:
+
+```text
+abc  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+abd  a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9
+```
+
+One letter changed, and the two digests have nothing in common. That's the
+**avalanche effect**. A good hash also has:
+
+- **A fixed size.** SHA-256 always outputs 256 bits (64 hex digits), whatever the input.
+- **Determinism.** The same bytes always give the same digest, on every machine.
+- **No way back.** Nothing in the digest tells you about the input.
+
+<TryIt tool="hash" query="alg=all" fragment={{ input: "abc" }}>
+  See `abc` hashed by all nine algorithms at once, then change one letter.
+</TryIt>
+
+Security people put the "no way back" part in three formal properties, from easiest
+to hardest to keep:
+
+1. **Preimage resistance:** given a digest, you can't find *an* input that produces it.
+2. **Second-preimage resistance:** given one input, you can't find a *different* input
+   with the same digest.
+3. **Collision resistance:** you can't find *any* two inputs with the same digest.
+
+Collisions must exist (there are infinitely many inputs and only 2²⁵⁶ digests), but
+for a sound hash, finding one should take about 2¹²⁸ attempts for SHA-256. Far more
+than all the computers on Earth could manage. Collision resistance is the property
+that falls first, and it's what broke MD5 and SHA-1.
+
+## MD5 and SHA-1: broken, but not useless
+
+**MD5** (1992, 128 bits) and **SHA-1** (1995, 160 bits) were the standard choices for
+a decade. Then researchers found shortcuts:
+
+- **MD5** collisions have been practical since 2004. In 2008, researchers used one to
+  create a rogue certificate authority that browsers trusted. Today a laptop finds an
+  MD5 collision in seconds.
+- **SHA-1** fell in 2017: Google's **SHAttered** attack produced two different PDF
+  files with the same SHA-1. In 2020, a *chosen-prefix* collision (two files that
+  start with any content you like) cost about $45,000 of rented GPUs.
+
+So never use them where an attacker chooses part of the input: signatures,
+certificates, content addressing in a system other people write to.
+
+They are still fine where nobody is attacking:
+
+- spotting **accidental** corruption (a truncated download, a bad disk),
+- **cache keys** and deduplication of your own data,
+- matching **legacy** checksums an existing system publishes.
+
+<Callout type="note" title="What about Git?">
+Git identifies objects by their SHA-1. Since SHAttered, Git uses a hardened SHA-1
+that detects the known collision attacks, and newer repositories can opt into
+SHA-256 (`git init --object-format=sha256`).
+</Callout>
+
+## SHA-2: the safe default
+
+**SHA-2** (2001) is a family: SHA-224, SHA-256, SHA-384 and SHA-512. No practical
+attack is known against any of them, and they are what the world runs on: TLS,
+Bitcoin, Subresource Integrity, Docker image digests, Linux package managers.
+
+- **SHA-256** is the default to reach for. 256 bits is plenty, and every language and
+  CPU supports it (many CPUs have dedicated SHA-256 instructions).
+- **SHA-512** works on 64-bit words, so in software it's often *faster* than SHA-256
+  on 64-bit CPUs, at the cost of a digest twice as long.
+- **SHA-224** and **SHA-384** are SHA-256 and SHA-512 with different starting values,
+  cut to a shorter output.
+
+SHA-2 has one quirk worth knowing: **length extension**. From `sha256(secret + message)`
+alone, an attacker can compute `sha256(secret + message + extra)` without knowing the
+secret. That's harmless for checksums, but it breaks the obvious way to sign messages.
+The truncated versions (SHA-384, SHA-512/256) are immune, and the proper fix,
+**HMAC**, is the subject of [our webhook signatures guide](/blog/hmac-webhook-signatures).
+
+## SHA-3: the backup plan
+
+**SHA-3** (FIPS 202, 2015) came out of a public competition, won by an algorithm
+called **Keccak**. It isn't a fix for SHA-2, which is fine. It's a design from a
+completely different family (a "sponge" instead of the Merkle–Damgård
+construction behind MD5, SHA-1 and SHA-2), so a breakthrough against one is unlikely
+to hit the other. It's also immune to length extension.
+
+Use SHA3-256 or SHA3-512 when a protocol or a compliance rule asks for it. Otherwise
+SHA-2 is faster in software and more widely supported.
+
+<Callout type="warning" title="Ethereum's keccak256 is not SHA3-256">
+Ethereum adopted Keccak before the standard was final, and NIST then changed the
+padding. Same algorithm, different padding byte, completely different digests. The
+SHA3-256 of an empty string is `a7ffc6f8…434a`; Ethereum's `keccak256("")` is
+`c5d2460186f7…a470`. If your digests don't match a smart contract's, this is why.
+</Callout>
+
+## CRC-32: a checksum, not a hash
+
+**CRC-32** shows up in the same tools, but it's a different kind of thing: a
+32-bit **error-detecting code**. It's very fast and guaranteed to catch common
+transmission errors (any single burst of up to 32 flipped bits), which is why zip,
+gzip, PNG and Ethernet use it.
+
+It has no security at all. Anyone can change a file and adjust four bytes to keep
+the same CRC. And with only 2³² values, random collisions are common: among about
+77,000 files, two probably share a CRC-32.
+
+## Passwords: none of the above
+
+<Callout type="warning" title="Don't store passwords with a plain hash">
+MD5, SHA-256 and SHA-3 are designed to be **fast**. A single modern GPU computes
+billions of SHA-256 hashes per second, so a leaked table of `sha256(password)` falls
+to a dictionary attack within hours, salted or not. Store passwords with a function
+built to be **slow and memory-hungry**: **Argon2id** (first choice), **scrypt** or
+**bcrypt**, through your framework's password API.
+</Callout>
+
+## Getting the same digest everywhere
+
+Every language gives the same SHA-256 for the same bytes. Watch out for two things:
+the **text encoding** (WebTools hashes text as UTF-8), and **trailing newlines**
+(`echo` adds one, `printf` doesn't):
+
+<Tabs>
+<Tab label="Shell">
+```bash
+printf 'Hello, World!' | sha256sum
+# dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f  -
+
+sha256sum ubuntu.iso      # hash a file
+```
+</Tab>
+<Tab label="Node.js">
+```js
+import { createHash } from 'node:crypto'
+
+createHash('sha256').update('Hello, World!').digest('hex')
+// 'dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f'
+```
+</Tab>
+<Tab label="Python">
+```python
+import hashlib
+
+hashlib.sha256("Hello, World!".encode()).hexdigest()
+# 'dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f'
+```
+</Tab>
+<Tab label="Go">
+```go
+sum := sha256.Sum256([]byte("Hello, World!"))
+fmt.Printf("%x\n", sum)
+// dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f
+```
+</Tab>
+<Tab label="API">
+```bash
+curl -s @@API_BASE@@/api/v1/hash \
+  -H 'Content-Type: application/json' \
+  -d '{"data": "Hello, World!", "algorithm": "sha256"}'
+```
+</Tab>
+</Tabs>
+
+AI agents get the same result through the `compute_hash`
+[MCP tool](/blog/mcp-server-for-ai-agents). That matters more than it sounds: a model
+can't actually compute a hash, and a made-up digest looks just as plausible as a
+real one.
+
+<TryIt tool="hash" fragment={{ input: "Hello, World!" }}>
+  Compare your local digest with the browser's.
+</TryIt>
+
+## Cheat sheet
+
+| Algorithm | Digest | Status | Use it for |
+|---|---|---|---|
+| MD5 | 128 bits | broken | legacy checksums, non-security cache keys |
+| SHA-1 | 160 bits | broken | legacy systems, Git (hardened) |
+| SHA-256 | 256 bits | **secure** | **the default**: integrity, signatures, IDs |
+| SHA-384 / 512 | 384 / 512 bits | secure | longer digests, fast on 64-bit CPUs |
+| SHA3-256 / 512 | 256 / 512 bits | secure | when a protocol requires SHA-3 |
+| CRC-32 | 32 bits | not cryptographic | detecting transmission errors |
+| HMAC-SHA256 | 256 bits | secure | proving who sent a message |
+| Argon2id, bcrypt | n/a | secure | **passwords** |
