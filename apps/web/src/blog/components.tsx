@@ -229,20 +229,27 @@ export function Callout({
   )
 }
 
-/** Card linking to a tool page, optionally with a pre-filled query. */
+/** Card linking to a tool page, optionally with pre-filled settings and input. */
 export function TryIt({
   tool: id,
   query,
+  fragment,
   children,
 }: {
   tool: string
   /** Appended to the tool URL, e.g. "cidr=10.0.0.0/22". */
   query?: string
+  /**
+   * Values for the URL fragment, e.g. `{ input: "abc" }`. Used for inputs
+   * that never go in the query string; the tool reads and clears them.
+   */
+  fragment?: Record<string, string>
   children?: ReactNode
 }) {
   const tool = TOOLS.find((t) => t.id === id)
   if (!tool) throw new Error(`<TryIt>: unknown tool id '${id}'.`)
-  const to = query ? `${tool.path}?${query}` : tool.path
+  let to = query ? `${tool.path}?${query}` : tool.path
+  if (fragment) to += `#${new URLSearchParams(fragment).toString()}`
   return (
     <Link
       className="try-it"

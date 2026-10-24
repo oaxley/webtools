@@ -68,7 +68,8 @@ function SiteFooter() {
  * Client-side navigation keeps the previous scroll position, so a link
  * clicked at the bottom of a page would open the next one at its bottom.
  * Jump to the top on new navigations; leave back/forward (POP) to the
- * browser's own scroll restoration, and leave in-page `#hash` links alone.
+ * browser's own scroll restoration, and leave in-page `#anchor` links alone.
+ * Data fragments (`#input=…`, read by tool pages) are not anchors.
  */
 function ScrollToTop() {
   const { pathname, hash, state } = useLocation()
@@ -76,10 +77,11 @@ function ScrollToTop() {
   // Tab-like links between sibling tools (Base64 | Base32 | Base58) pass
   // `{ keepScroll: true }` so the page doesn't jump while switching.
   const keepScroll = (state as { keepScroll?: boolean } | null)?.keepScroll === true
+  const anchor = hash !== '' && !hash.includes('=')
   useLayoutEffect(() => {
-    if (navigationType === 'POP' || hash || keepScroll) return
+    if (navigationType === 'POP' || anchor || keepScroll) return
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [pathname, hash, navigationType, keepScroll])
+  }, [pathname, hash, anchor, navigationType, keepScroll])
   return null
 }
 

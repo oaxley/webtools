@@ -4,9 +4,10 @@
  *
  * Settings live in the query string (`/hash?alg=md5&output=base64`) so a
  * configured page can be linked to. The input and the HMAC key never do:
- * they may be secrets.
+ * they may be secrets. Blog links pre-fill them through the fragment
+ * (`#input=…&key=…`), which is read once and then cleared.
  */
-import { useDeferredValue, useId, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   computeAllHashes,
@@ -22,7 +23,7 @@ import {
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
-import { readBool, writeParams } from '../urlParams'
+import { clearFragment, readBool, readFragmentParam, writeParams } from '../urlParams'
 import '../components/IoPanels.css'
 import './HashGenerator.css'
 
@@ -87,8 +88,9 @@ const EXAMPLES: Example[] = [
 function HashGenerator() {
   const [params, setParams] = useSearchParams()
   const [settings, setSettings] = useState<Settings>(() => settingsFromParams(params))
-  const [input, setInput] = useState('')
-  const [key, setKey] = useState('')
+  const [input, setInput] = useState(() => readFragmentParam('input') ?? '')
+  const [key, setKey] = useState(() => readFragmentParam('key') ?? '')
+  useEffect(clearFragment, [])
   const [keyFormat, setKeyFormat] = useState<BytesFormat>('text')
   const inputId = useId()
   const keyId = useId()

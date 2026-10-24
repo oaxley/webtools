@@ -7,7 +7,7 @@
  * same. The text being converted is never written to the URL: it may be
  * a secret. Only the settings are (`/base64?mode=decode&urlsafe=1`).
  */
-import { useDeferredValue, useId, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   convertEncoding,
@@ -20,7 +20,7 @@ import {
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
-import { readBool, writeParams } from '../urlParams'
+import { clearFragment, readBool, readFragmentParam, writeParams } from '../urlParams'
 import '../components/IoPanels.css'
 import './EncodingTool.css'
 
@@ -96,7 +96,8 @@ function settingsFromParams(params: URLSearchParams): Settings {
 let carriedInput: string | null = null
 
 function takeCarriedInput(): string {
-  const input = carriedInput ?? ''
+  // A `#input=…` fragment (from a blog link) wins over carried text.
+  const input = readFragmentParam('input') ?? carriedInput ?? ''
   carriedInput = null
   return input
 }
@@ -119,6 +120,7 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
   const [params, setParams] = useSearchParams()
   const [settings, setSettings] = useState<Settings>(() => settingsFromParams(params))
   const [input, setInput] = useState(takeCarriedInput)
+  useEffect(clearFragment, [])
   const [showHex, setShowHex] = useState(false)
   const inputId = useId()
 
