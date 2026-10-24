@@ -73,6 +73,7 @@ export type PatternName =
     | "sequence"
     | "repeat"
     | "date"
+    | "separator"
     | "random";
 
 /** One recognised piece of the password, as priced by the estimator. */
@@ -259,6 +260,52 @@ function cardinality(password: string): number {
 
 interface Match extends StrengthPattern {
     end: number;
+    /**
+     * A separator. It pays no per-piece penalty of its own: the word after
+     * it does, exactly as if the words were run together, so spacing a
+     * passphrase out never makes it look weaker.
+     */
+    joins?: boolean;
+}
+
+/** Characters people put between words. */
+const SEPARATOR_CHARACTERS = " -_.,/+:;|~*";
+/** Guesses to pick the separator, paid once however often it repeats. */
+const SEPARATOR_GUESSES = SEPARATOR_CHARACTERS.length;
+
+/**
+ * The separator in `correct horse battery staple`: the most frequent
+ * separator character, wherever it sits between two other characters.
+ * Using it is a single choice, so every occurrence is matched for free
+ * and `estimateStrength` charges the choice once.
+ */
+function separatorMatches(password: string): Match[] {
+    const chars = [...password];
+    let separator: string | undefined;
+    let most = 0;
+    for (const c of SEPARATOR_CHARACTERS) {
+        const n = chars.filter((x) => x === c).length;
+        if (n > most) {
+            most = n;
+            separator = c;
+        }
+    }
+    if (separator === undefined) return [];
+    const matches: Match[] = [];
+    for (let i = 1; i < password.length - 1; i++) {
+        if (password[i] !== separator) continue;
+        if (password[i - 1] === separator || password[i + 1] === separator) continue;
+        matches.push({
+            start: i,
+            end: i + 1,
+            token: separator,
+            pattern: "separator",
+            guesses: 1,
+            description: "separator between words",
+            joins: true,
+        });
+    }
+    return matches;
 }
 
 /** Misspellings are only looked for in passwords up to this long. */
@@ -564,6 +611,7 @@ function cheapestCover(
     const perChar = Math.log2(baseCardinality);
     const byEnd: Match[][] = Array.from({ length: n + 1 }, () => []);
     for (const match of matches) byEnd[match.end].push(match);
+    const pays = (match: Match) => (match.start === 0 || match.joins ? 0 : penalty);
 
     const cost = new Float64Array(n + 1).fill(Infinity);
     const random = new Float64Array(n + 1).fill(Infinity);
@@ -585,8 +633,7 @@ function cheapestCover(
             runStart[end] = end - 1;
         }
         for (const match of byEnd[end]) {
-            const total =
-                best(match.start) + Math.log2(match.guesses) + (match.start === 0 ? 0 : penalty);
+            const total = best(match.start) + Math.log2(match.guesses) + pays(match);
             if (total < cost[end]) {
                 cost[end] = total;
                 viaMatch[end] = match;
@@ -760,10 +807,14 @@ export function estimateStrength(password: string): StrengthEstimate {
         ...sequenceMatches(head),
         ...repeatMatches(head, base),
         ...dateMatches(head),
+        ...separatorMatches(head),
     ].filter((m) => m.start >= 0 && m.end <= head.length);
 
     const { log2, patterns } = cheapestCover(head, matches, base);
-    const bits = log2 + tail.length * Math.log2(base);
+    const separatorBits = patterns.some((p) => p.pattern === "separator")
+        ? Math.log2(SEPARATOR_GUESSES)
+        : 0;
+    const bits = log2 + separatorBits + tail.length * Math.log2(base);
     const guessesLog10 = bits * Math.log10(2);
     const score = scoreFromLog10(guessesLog10);
     const { warning, suggestions } = buildFeedback(password, patterns, score);

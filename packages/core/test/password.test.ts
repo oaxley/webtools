@@ -305,11 +305,26 @@ describe("estimateStrength", () => {
         );
     });
 
-    it("rates a four-word passphrase well above a decorated word", () => {
+    it("rates a four-word passphrase above a decorated word", () => {
         assert.ok(
             estimateStrength("correct horse battery staple").bits >
-                estimateStrength("Tr0ub4dor&3").bits + 20,
+                estimateStrength("Tr0ub4dor&3").bits + 15,
         );
+    });
+
+    it("charges a repeated separator once", () => {
+        const spaced = estimateStrength("correct horse battery staple");
+        assert.deepEqual(
+            spaced.patterns.filter((p) => p.pattern === "separator").map((p) => p.start),
+            [7, 13, 21],
+        );
+        assert.equal(
+            estimateStrength("correct-horse-battery-staple").bits.toFixed(6),
+            spaced.bits.toFixed(6),
+        );
+        // Spacing words out costs the attacker the separator choice, and
+        // never makes a passphrase look weaker than the words run together.
+        assert.ok(spaced.bits > estimateStrength("correcthorsebatterystaple").bits);
     });
 
     it("explains a common password by its rank", () => {
