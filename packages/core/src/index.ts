@@ -129,6 +129,14 @@ export type {
 // rather than from here: it carries ~100 KB of dictionaries, and the
 // web app loads it on demand. Only the light helpers are re-exported.
 export { EFF_WORDLIST_SIZE } from "./passwordWordlist";
+export {
+    ATTACK_SCENARIOS,
+    crackTimes,
+    formatDuration,
+    scoreFromLog10,
+    STRENGTH_LABELS,
+} from "./passwordCrackTime";
+export type { AttackScenarioId, CrackTime, StrengthScore } from "./passwordCrackTime";
 
 export {
     generateULID,

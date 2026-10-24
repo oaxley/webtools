@@ -25,12 +25,8 @@ import {
     COMMON_PASSWORDS,
     ENGLISH_WORDS,
 } from "../src/passwordDictionaries.ts";
-import {
-    crackTimes,
-    estimateStrength,
-    formatDuration,
-    scoreFromLog10,
-} from "../src/passwordStrength.ts";
+import { estimateStrength } from "../src/passwordStrength.ts";
+import { crackTimes, formatDuration, scoreFromLog10 } from "../src/passwordCrackTime.ts";
 
 describe("wordlists", () => {
     it("has the 7,776 distinct EFF words", () => {
@@ -360,7 +356,10 @@ describe("crack times", () => {
         assert.equal(formatDuration(3 * 3600), "3 hours");
         assert.equal(formatDuration(5 * 86_400), "5 days");
         assert.equal(formatDuration(40 * 31_556_952), "40 years");
-        assert.equal(formatDuration(5e3 * 31_556_952), "centuries");
+        assert.equal(formatDuration(5e3 * 31_556_952), "thousands of years");
+        assert.equal(formatDuration(5e7 * 31_556_952), "millions of years");
+        assert.equal(formatDuration(5e9 * 31_556_952), "billions of years");
+        assert.equal(formatDuration(5e10 * 31_556_952), "longer than the universe has existed");
         assert.equal(formatDuration(Infinity), "longer than the universe has existed");
     });
 
