@@ -11,6 +11,7 @@ import HashGenerator from './pages/HashGenerator.tsx'
 import IpCalculator from './pages/IpCalculator.tsx'
 import JwtDecoder from './pages/JwtDecoder.tsx'
 import NanoIdGenerator from './pages/NanoIdGenerator.tsx'
+import PasswordGeneratorRoute from './pages/PasswordGeneratorRoute.tsx'
 import UlidGenerator from './pages/UlidGenerator.tsx'
 import UuidGenerator from './pages/UuidGenerator.tsx'
 import X509Decoder from './pages/X509Decoder.tsx'
@@ -27,6 +28,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="x509" element={<X509Decoder />} />
           <Route path="uuid" element={<UuidGenerator />} />
           <Route path="nanoid" element={<NanoIdGenerator />} />
+          <Route path="password" element={<PasswordGeneratorRoute />} />
           <Route path="ulid" element={<UlidGenerator />} />
           <Route path="base64" element={<EncodingTool encoding="base64" />} />
           <Route path="base32" element={<EncodingTool encoding="base32" />} />

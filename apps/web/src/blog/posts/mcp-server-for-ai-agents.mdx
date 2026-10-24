@@ -4,7 +4,7 @@ description: "Connect Claude, Cursor, OpenCode or your own agent to WebTools ove
 date: 2026-10-20
 order: 1
 tags: [mcp, ai-agents, api]
-tools: [cidr, jwt, x509, uuid, nanoid, ulid, base64, base32, base58, hash]
+tools: [cidr, jwt, x509, uuid, nanoid, ulid, base64, base32, base58, hash, password]
 cover:
   label: MCP
   accent: "#4f46e5"
@@ -23,7 +23,7 @@ This guide shows how to plug it in and what your agent can do with it.
 ## What the server exposes
 
 The MCP endpoint lives at `@@API_BASE@@/mcp`. It speaks **Streamable HTTP** in stateless
-mode: no session, no login, no API key. Ten tools are registered:
+mode: no session, no login, no API key. Eleven tools are registered:
 
 | Tool | What it does | REST equivalent |
 |------|--------------|-----------------|
@@ -37,6 +37,7 @@ mode: no session, no login, no API key. Ten tools are registered:
 | `convert_base32` | Encode or decode Base32 (RFC 4648 or Crockford) | `POST`<br />`/api/v1/base32` |
 | `convert_base58` | Encode or decode Base58 (Bitcoin alphabet), text or hex bytes | `POST`<br />`/api/v1/base58` |
 | `compute_hash` | MD5, SHA-1/2/3 or CRC-32 digest, or an HMAC with a key | `POST`<br />`/api/v1/hash` |
+| `generate_password` | 1–20 random passwords or EFF passphrases, with their exact entropy | `GET`<br />`/api/v1/password` |
 
 All three interfaces (the web pages, the REST API and MCP) call the same shared
 code, so the agent sees exactly the numbers you see in the browser.
@@ -118,7 +119,7 @@ uses the small `mcp-remote` bridge. If your plan offers custom connectors, you c
 also add the URL directly under **Settings → Connectors**.
 </Callout>
 
-Restart or reload the client, and the ten tools should appear in its tool list.
+Restart or reload the client, and the eleven tools should appear in its tool list.
 
 ## Try a few prompts
 
@@ -144,6 +145,9 @@ agent pick:
   → `compute_hash` with `hmacKey` computes the real HMAC. A model can't compute a hash
   in its head, and a guessed one looks just as plausible as the real thing. (More on
   [how webhook signatures work](/blog/hmac-webhook-signatures).)
+- *"Fill in the `.env.example` with a database password and a session secret for local dev."*
+  → `generate_password` draws them from a cryptographic RNG. A password a model invents is
+  shaped by what it has seen before, and so is far easier to guess than its length suggests.
 
 The agent then explains the result in plain language, but the facts come from
 the tool.
