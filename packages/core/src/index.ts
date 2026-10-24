@@ -34,6 +34,26 @@ export type {
     EncodingOptions,
 } from "./encoding";
 
+export {
+    computeAllHashes,
+    computeHash,
+    digest,
+    DIGEST_FORMATS,
+    HASH_ALGORITHMS,
+    HASH_INFO,
+    hmac,
+    MAX_HASH_BYTES,
+} from "./hash";
+export type {
+    AllHashesResult,
+    ComputeHashInput,
+    DigestFormat,
+    HashAlgorithm,
+    HashAlgorithmInfo,
+    HashOptions,
+    HashResult,
+} from "./hash";
+
 export { calculateCIDR, isRoutable } from "./ip";
 export type { CidrResult } from "./ip";
 
