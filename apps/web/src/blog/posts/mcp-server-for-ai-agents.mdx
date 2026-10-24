@@ -4,7 +4,7 @@ description: "Connect Claude, Cursor, OpenCode or your own agent to WebTools ove
 date: 2026-10-20
 order: 1
 tags: [mcp, ai-agents, api]
-tools: [cidr, jwt, x509, uuid, nanoid, ulid, base64, base32, base58]
+tools: [cidr, jwt, x509, uuid, nanoid, ulid, base64, base32, base58, hash]
 cover:
   label: MCP
   accent: "#4f46e5"
@@ -23,7 +23,7 @@ This guide shows how to plug it in and what your agent can do with it.
 ## What the server exposes
 
 The MCP endpoint lives at `@@API_BASE@@/mcp`. It speaks **Streamable HTTP** in stateless
-mode: no session, no login, no API key. Nine tools are registered:
+mode: no session, no login, no API key. Ten tools are registered:
 
 | Tool | What it does | REST equivalent |
 |------|--------------|-----------------|
@@ -36,6 +36,7 @@ mode: no session, no login, no API key. Nine tools are registered:
 | `convert_base64` | Encode or decode Base64 (standard or URL-safe) | `POST`<br />`/api/v1/base64` |
 | `convert_base32` | Encode or decode Base32 (RFC 4648 or Crockford) | `POST`<br />`/api/v1/base32` |
 | `convert_base58` | Encode or decode Base58 (Bitcoin alphabet), text or hex bytes | `POST`<br />`/api/v1/base58` |
+| `compute_hash` | MD5, SHA-1/2/3 or CRC-32 digest, or an HMAC with a key | `POST`<br />`/api/v1/hash` |
 
 All three interfaces (the web pages, the REST API and MCP) call the same shared
 code, so the agent sees exactly the numbers you see in the browser.
@@ -117,7 +118,7 @@ uses the small `mcp-remote` bridge. If your plan offers custom connectors, you c
 also add the URL directly under **Settings → Connectors**.
 </Callout>
 
-Restart or reload the client, and the nine tools should appear in its tool list.
+Restart or reload the client, and the ten tools should appear in its tool list.
 
 ## Try a few prompts
 
@@ -139,6 +140,9 @@ agent pick:
 - *"What's in this Base64 blob from the config file?"*
   → `convert_base64` with `operation: "decode"` returns the exact bytes, as text and hex,
   instead of the model decoding base64 in its head.
+- *"Check this webhook: does its signature match HMAC-SHA256 of the body with our secret?"*
+  → `compute_hash` with `hmacKey` computes the real HMAC. A model can't compute a hash
+  in its head, and a guessed one looks just as plausible as the real thing.
 
 The agent then explains the result in plain language, but the facts come from
 the tool.

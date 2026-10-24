@@ -21,6 +21,7 @@ import {
 import CopyJsonButton from '../components/CopyJsonButton'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
 import { readBool, writeParams } from '../urlParams'
+import '../components/IoPanels.css'
 import './EncodingTool.css'
 
 interface EncodingMeta {
@@ -279,10 +280,10 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
         </div>
       </div>
 
-      <div className="encoding-grid">
-        <section className="encoding-panel" aria-label="Input">
-          <div className="encoding-panel-head">
-            <label htmlFor={inputId} className="encoding-panel-title">
+      <div className="io-grid">
+        <section className="io-panel" aria-label="Input">
+          <div className="io-panel-head">
+            <label htmlFor={inputId} className="io-panel-title">
               {inputLabel}
             </label>
             {settings.mode === 'encode' && (
@@ -299,7 +300,7 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
           </div>
           <textarea
             id={inputId}
-            className="encoding-textarea"
+            className="io-textarea"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
@@ -314,7 +315,7 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
             autoCapitalize="off"
             spellCheck={false}
           />
-          <div className="encoding-panel-foot">
+          <div className="io-panel-foot">
             <span>{inputCount}</span>
             {settings.mode === 'decode' && (
               <span>
@@ -325,9 +326,9 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
           </div>
         </section>
 
-        <section className="encoding-panel" aria-label="Result" aria-live="polite">
-          <div className="encoding-panel-head">
-            <h2 className="encoding-panel-title">{outputLabel}</h2>
+        <section className="io-panel" aria-label="Result" aria-live="polite">
+          <div className="io-panel-head">
+            <h2 className="io-panel-title">{outputLabel}</h2>
             {decoded && (
               <SegmentedControl
                 ariaLabel="Show decoded bytes as"
@@ -349,12 +350,12 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
             />
           </div>
           {outcome && !outcome.ok ? (
-            <div className="error-box encoding-error" role="alert">
+            <div className="error-box io-error" role="alert">
               {outcome.error}
             </div>
           ) : (
             <textarea
-              className="encoding-textarea encoding-output"
+              className="io-textarea io-output"
               value={output}
               readOnly
               placeholder="The result appears here as you type."
@@ -362,7 +363,7 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
               spellCheck={false}
             />
           )}
-          <div className="encoding-panel-foot">
+          <div className="io-panel-foot">
             <span>
               {encoded && plural(encoded.output.length, 'character')}
               {decoded && plural(decoded.bytes, 'byte')}
