@@ -294,18 +294,20 @@ function misspellingMatches(password: string): Match[] {
     for (let i = 0; i < password.length; i++) {
         for (let j = i + MIN_FUZZY_WORD - 1; j <= Math.min(password.length, i + 16); j++) {
             const token = password.slice(i, j);
-            const spellings = [token.toLowerCase(), ...leetVariants(token)].filter(
-                (spelling) => /^[a-z]+$/.test(spelling),
-            );
+            // Flag l33t readings before filtering, so the flag stays right.
+            const spellings = [
+                { spelling: token.toLowerCase(), leet: false },
+                ...leetVariants(token).map((spelling) => ({ spelling, leet: true })),
+            ].filter(({ spelling }) => /^[a-z]+$/.test(spelling));
             const best = new Map<Dictionary, { word: string; rank: number; leet: boolean }>();
-            spellings.forEach((spelling, k) => {
+            spellings.forEach(({ spelling, leet }) => {
                 for (const word of oneEditAway(spelling)) {
                     if (word.length < MIN_FUZZY_WORD) continue;
                     for (const dictionary of searched) {
                         const rank = dictionary.ranks.get(word);
                         const current = best.get(dictionary);
                         if (rank !== undefined && (!current || rank < current.rank)) {
-                            best.set(dictionary, { word, rank, leet: k > 0 });
+                            best.set(dictionary, { word, rank, leet });
                         }
                     }
                 }
@@ -674,7 +676,9 @@ function buildFeedback(
                 break;
             case "word":
             case "passphrase-word":
-                warning = `${quote(weakest.token)} is a common word, which crackers try first.`;
+                warning = /misspelled|substituted|backwards/.test(weakest.description)
+                    ? `${quote(weakest.token)} is a common word in disguise, and crackers try those disguises.`
+                    : `${quote(weakest.token)} is a common word, which crackers try first.`;
                 break;
             case "name":
                 warning = `${quote(weakest.token)} is a common name.`;

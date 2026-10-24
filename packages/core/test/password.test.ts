@@ -298,7 +298,9 @@ describe("estimateStrength", () => {
         assert.ok(decorated.bits < 50, `Tr0ub4dor&3 at ${decorated.bits.toFixed(1)} bits`);
         assert.ok(decorated.bits > plain.bits);
         assert.ok(
-            decorated.patterns.some((p) => p.description.includes("troubadour")),
+            decorated.patterns.some(
+                (p) => p.description.includes("troubadour") && p.description.includes("substituted"),
+            ),
             JSON.stringify(decorated.patterns),
         );
     });
@@ -363,10 +365,10 @@ describe("crack times", () => {
         assert.equal(formatDuration(Infinity), "longer than the universe has existed");
     });
 
-    it("maps guesses to zxcvbn's 0-4 scale", () => {
+    it("maps guesses to the 0-4 scale", () => {
         assert.deepEqual(
-            [2, 3, 5.9, 6, 7.9, 8, 9.9, 10, 40].map(scoreFromLog10),
-            [0, 1, 1, 2, 2, 3, 3, 4, 4],
+            [2, 5.9, 6, 11.9, 12, 14.9, 15, 19.9, 20, 40].map(scoreFromLog10),
+            [0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
         );
     });
 });

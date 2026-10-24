@@ -930,5 +930,9 @@ export const EFF_LARGE_WORDLIST: readonly string[] =
     "ppelin zero zestfully zesty zigzagged zipfile zipping zippy zips zit" +
     " zodiac zombie zone zoning zookeeper zoologist zoology zoom").split(" ");
 
-/** Number of words in the list (6^5), i.e. five dice rolls per word. */
-export const EFF_WORDLIST_SIZE = EFF_LARGE_WORDLIST.length;
+/**
+ * Number of words in the list (6^5), i.e. five dice rolls per word. A
+ * literal rather than `.length`, so importing it doesn't keep the list
+ * in a bundle (the tests check the two agree).
+ */
+export const EFF_WORDLIST_SIZE = 7776;

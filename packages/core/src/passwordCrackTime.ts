@@ -102,11 +102,26 @@ export function crackTimes(guessesLog10: number): CrackTime[] {
     });
 }
 
-/** Score from the number of guesses, on zxcvbn's scale. */
+/**
+ * Score from the number of guesses.
+ *
+ * Stricter than zxcvbn's scale, which was tuned for rate-limited online
+ * guessing and calls 10^10 guesses "very strong". Here the bands follow
+ * the offline attacks shown next to the score, since a site's password
+ * database can always leak:
+ *
+ * - 0 very weak:   under 10^6, found online within a day
+ * - 1 weak:        under 10^12 (~40 bits), found within weeks even
+ *                  against bcrypt, and in seconds against a fast hash
+ * - 2 fair:        under 10^15 (~50 bits), safe behind bcrypt, but a
+ *                  fast hash falls within hours
+ * - 3 strong:      under 10^20 (~66 bits), a fast hash takes years
+ * - 4 very strong: 10^20 and up, out of reach of any known attack
+ */
 export function scoreFromLog10(guessesLog10: number): StrengthScore {
-    if (guessesLog10 < 3) return 0;
-    if (guessesLog10 < 6) return 1;
-    if (guessesLog10 < 8) return 2;
-    if (guessesLog10 < 10) return 3;
+    if (guessesLog10 < 6) return 0;
+    if (guessesLog10 < 12) return 1;
+    if (guessesLog10 < 15) return 2;
+    if (guessesLog10 < 20) return 3;
     return 4;
 }
