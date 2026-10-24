@@ -7,6 +7,7 @@
         "test": "node --test 'test/*.test.ts'"
     },
     "exports": {
-        ".": "./src/index.ts"
+        ".": "./src/index.ts",
+        "./passwordStrength": "./src/passwordStrength.ts"
     }
 }

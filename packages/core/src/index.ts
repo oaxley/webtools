@@ -97,6 +97,40 @@ export {
 export type { NanoIdAlphabet, NanoIdOptions } from "./nanoid";
 
 export {
+    AMBIGUOUS_CHARACTERS,
+    generatePassword,
+    generatePasswords,
+    MAX_PASSWORD_COUNT,
+    PASSPHRASE_DEFAULT_SEPARATOR,
+    PASSPHRASE_DEFAULT_WORDS,
+    PASSPHRASE_MAX_SEPARATOR,
+    PASSPHRASE_MAX_WORDS,
+    PASSPHRASE_MIN_WORDS,
+    PASSWORD_CHARSET_NAMES,
+    PASSWORD_CHARSETS,
+    PASSWORD_DEFAULT_LENGTH,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    PASSWORD_MODES,
+    passwordEntropyBits,
+    resolvePasswordOptions,
+} from "./password";
+export type {
+    GeneratedPasswords,
+    PassphraseOptions,
+    PasswordCharset,
+    PasswordMode,
+    PasswordOptions,
+    RandomPasswordOptions,
+    ResolvedPasswordOptions,
+} from "./password";
+
+// The strength estimator is exported separately (`./passwordStrength`)
+// rather than from here: it carries ~100 KB of dictionaries, and the
+// web app loads it on demand. Only the light helpers are re-exported.
+export { EFF_WORDLIST_SIZE } from "./passwordWordlist";
+
+export {
     generateULID,
     generateULIDs,
     MAX_ULID_COUNT,
