@@ -69,6 +69,7 @@ describe("POST /mcp", () => {
     );
     expect(Object.keys(byName).sort()).toEqual([
       "calculate_cidr",
+      "compute_hash",
       "convert_base32",
       "convert_base58",
       "convert_base64",
@@ -79,6 +80,7 @@ describe("POST /mcp", () => {
       "generate_uuid",
     ]);
     expect(byName.convert_base64.inputSchema.properties).toHaveProperty("urlSafe");
+    expect(byName.compute_hash.inputSchema.properties).toHaveProperty("hmacKey");
     expect(byName.convert_base32.inputSchema.properties).toHaveProperty("variant");
     expect(byName.convert_base58.inputSchema.properties).not.toHaveProperty("padding");
     expect(byName.generate_ulid.description).toMatch(/ULID/);
@@ -612,6 +614,39 @@ describe("POST /mcp — convert_base64 / base32 / base58", () => {
     });
     expect(body.result?.isError).toBe(true);
     expect(body.result?.content?.[0].text).toMatch(/1024-byte limit/);
+  });
+});
+
+describe("POST /mcp — compute_hash", () => {
+  it("defaults to SHA-256", async () => {
+    const body = await callTool("compute_hash", { data: "abc" });
+    expect(body.result?.isError).toBeFalsy();
+    expect(JSON.parse(body.result!.content![0].text)).toEqual({
+      algorithm: "sha256",
+      hmac: false,
+      digest: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      format: "hex",
+      bits: 256,
+      inputBytes: 3,
+    });
+  });
+
+  it("computes HMACs and `all`", async () => {
+    const one = await callTool("compute_hash", {
+      data: "what do ya want for nothing?",
+      algorithm: "md5",
+      hmacKey: "Jefe",
+    });
+    expect(JSON.parse(one.result!.content![0].text).digest).toBe("750c783e6ab0b503eaa86e310a5db738");
+    const all = await callTool("compute_hash", { data: "abc", algorithm: "all", hmacKey: "k" });
+    const payload = JSON.parse(all.result!.content![0].text);
+    expect(payload.hashes).toHaveLength(8);
+  });
+
+  it("surfaces errors as isError", async () => {
+    const body = await callTool("compute_hash", { data: "x", algorithm: "crc32", hmacKey: "k" });
+    expect(body.result?.isError).toBe(true);
+    expect(body.result?.content?.[0].text).toMatch(/checksum/);
   });
 });
 

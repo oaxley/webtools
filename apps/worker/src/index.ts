@@ -8,6 +8,7 @@
  */
 import { Hono } from "hono";
 import { base32, base58, base64 } from "./routes/encoding";
+import hash from "./routes/hash";
 import ip from "./routes/ip";
 import jwt from "./routes/jwt";
 import mcp from "./routes/mcp";
@@ -30,6 +31,7 @@ app.route("/api/v1/ulid", ulid);
 app.route("/api/v1/base64", base64);
 app.route("/api/v1/base32", base32);
 app.route("/api/v1/base58", base58);
+app.route("/api/v1/hash", hash);
 
 // MCP (Model Context Protocol) endpoint. Lives at the conventional
 // `/mcp` path, outside the versioned API namespace, so standard MCP

@@ -37,6 +37,9 @@
  *   `/api/v1/base64|base32|base58`, same size caps and result shapes
  *   (`{ encoding, operation, output, inputBytes }` or
  *   `{ encoding, operation, text, hex, bytes }`).
+ * - `compute_hash(data, algorithm?, inputFormat?, outputFormat?,
+ *   uppercase?, hmacKey?, hmacKeyFormat?)` — mirrors `/api/v1/hash`:
+ *   MD5, SHA-1/2/3 or CRC-32 digests (or HMAC), one algorithm or `all`.
  */
 import { Hono } from "hono";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -44,6 +47,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/cfworker";
 import { z } from "zod";
 import { API_MAX_BYTES } from "./encoding";
+import { API_MAX_HASH_BYTES, runHash } from "./hash";
 import {
   calculateCIDR,
   convertEncoding,
@@ -52,6 +56,7 @@ import {
   generateNanoIds,
   generateULIDs,
   generateUUIDs,
+  HASH_ALGORITHMS,
   isRoutable,
   MAX_NANOID_COUNT,
   MAX_ULID_COUNT,
@@ -434,6 +439,57 @@ function buildServer(): McpServer {
         );
       } catch (e) {
         return errorResult(e, "Invalid Base58 request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "compute_hash",
+    {
+      title: "Hash Generator",
+      description:
+        "Compute a message digest of text or hex bytes: MD5, SHA-1, SHA-224, SHA-256, SHA-384, " +
+        "SHA-512, SHA3-256, SHA3-512 or CRC-32, or `all` of them at once. Pass `hmacKey` to get " +
+        "an HMAC instead (not available for CRC-32). " +
+        `Up to ${API_MAX_HASH_BYTES} bytes. One algorithm returns ` +
+        "`{ algorithm, hmac, digest, format, bits, inputBytes }`; `all` returns " +
+        "`{ hmac, format, inputBytes, hashes: [{ algorithm, digest, bits }] }`.",
+      inputSchema: {
+        data: z.string().describe("The text (or hex bytes) to hash"),
+        algorithm: z
+          .enum(["all", ...HASH_ALGORITHMS])
+          .optional()
+          .describe("Hash algorithm (default `sha256`), or `all`"),
+        inputFormat: z
+          .enum(["text", "hex"])
+          .optional()
+          .describe("Read `data` as UTF-8 `text` (default) or as `hex` bytes"),
+        outputFormat: z
+          .enum(["hex", "base64"])
+          .optional()
+          .describe("Digest encoding: `hex` (default) or `base64`"),
+        uppercase: z.boolean().optional().describe("Upper-case hex digits (default false)"),
+        hmacKey: z.string().optional().describe("Secret key: compute an HMAC instead of a plain hash"),
+        hmacKeyFormat: z
+          .enum(["text", "hex"])
+          .optional()
+          .describe("Read `hmacKey` as UTF-8 `text` (default) or as `hex` bytes"),
+      },
+    },
+    ({ data, algorithm, inputFormat, outputFormat, uppercase, hmacKey, hmacKeyFormat }) => {
+      try {
+        return jsonResult(
+          runHash((algorithm ?? "sha256") as Parameters<typeof runHash>[0], {
+            input: data,
+            inputFormat,
+            outputFormat,
+            uppercase,
+            hmacKey,
+            hmacKeyFormat,
+          }),
+        );
+      } catch (e) {
+        return errorResult(e, "Invalid hash request");
       }
     },
   );
