@@ -14,19 +14,19 @@ This page shows how to plug it in and what your agent can do with it.
 The MCP endpoint lives at `@@API_BASE@@/mcp`. It speaks **Streamable HTTP** in stateless
 mode: no session, no login, no API key. Eleven tools are registered:
 
-| Tool | What it does | REST equivalent |
-|------|--------------|-----------------|
-| `calculate_cidr` | Network, broadcast, mask, host range and "is it publicly routable?" for an IPv4 CIDR | `GET`<br />`/api/v1/ip` |
-| `decode_jwt` | Header, payload and an expiry analysis with human-readable dates. **No signature check.** | `POST`<br />`/api/v1/jwt` |
-| `decode_x509` | Subject, issuer, validity, key, extensions (SAN, key usage…) and fingerprints of a PEM/DER certificate | `POST`<br />`/api/v1/x509` |
-| `generate_uuid` | 1–10 UUIDs, version 7 (default) or 4 | `GET`<br />`/api/v1/uuid` |
-| `generate_nanoid` | 1–10 NanoIDs with a chosen size and alphabet | `GET`<br />`/api/v1/nanoid` |
-| `generate_ulid` | 1–10 ULIDs, sortable by creation time (monotonic by default) | `GET`<br />`/api/v1/ulid` |
-| `convert_base64` | Encode or decode Base64 (standard or URL-safe) | `POST`<br />`/api/v1/base64` |
-| `convert_base32` | Encode or decode Base32 ([RFC 4648](https://datatracker.ietf.org/doc/html/rfc4648#section-6) or Crockford) | `POST`<br />`/api/v1/base32` |
-| `convert_base58` | Encode or decode Base58 (Bitcoin alphabet), text or hex bytes | `POST`<br />`/api/v1/base58` |
-| `compute_hash` | MD5, SHA-1/2/3 or CRC-32 digest, or an HMAC with a key | `POST`<br />`/api/v1/hash` |
-| `generate_password` | 1–20 random passwords or EFF passphrases, with their exact entropy | `GET`<br />`/api/v1/password` |
+| Tool | What it does |
+|------|--------------|
+| `calculate_cidr` | Network, broadcast, mask, host range and "is it publicly routable?" for an IPv4 CIDR |
+| `decode_jwt` | Header, payload and an expiry analysis with human-readable dates. **No signature check.** |
+| `decode_x509` | Subject, issuer, validity, key, extensions (SAN, key usage…) and fingerprints of a PEM/DER certificate |
+| `generate_uuid` | 1–10 UUIDs, version 7 (default) or 4 |
+| `generate_nanoid` | 1–10 NanoIDs with a chosen size and alphabet |
+| `generate_ulid` | 1–10 ULIDs, sortable by creation time (monotonic by default) |
+| `convert_base64` | Encode or decode Base64 (standard or URL-safe) |
+| `convert_base32` | Encode or decode Base32 ([RFC 4648](https://datatracker.ietf.org/doc/html/rfc4648#section-6) or Crockford) |
+| `convert_base58` | Encode or decode Base58 (Bitcoin alphabet), text or hex bytes |
+| `compute_hash` | MD5, SHA-1/2/3 or CRC-32 digest, or an HMAC with a key |
+| `generate_password` | 1–20 random passwords or EFF passphrases, with their exact entropy |
 
 All three interfaces (the web pages, the REST API and MCP) call the same shared
 code, so the agent sees exactly the numbers you see in the browser.
