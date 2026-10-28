@@ -249,13 +249,13 @@ export function blogStatic(options: Options = {}): Plugin {
       page('blog.html', {
         title: `Blog — ${SITE_CONFIG.name}`,
         description:
-          'Practical guides on JWTs, UUIDs, NanoIDs, ULIDs, X.509 certificates and giving AI agents real tools via MCP.',
+          'Practical guides on JWTs, UUIDs, NanoIDs, ULIDs, X.509 certificates, hashes, passwords and TOTP.',
         url: `${siteUrl}/blog`,
         type: 'website',
         image: await og('blog', {
           eyebrow: 'Blog',
           title: 'Guides for the tools you reach for every day.',
-          description: 'Tokens, certificates, identifiers, networks, and AI agents via MCP.',
+          description: 'Tokens, certificates, identifiers, networks, hashes and passwords.',
           footer: [`${list.length} guides`, 'RSS feed'],
         }),
         imageAlt: `${SITE_CONFIG.name} blog`,

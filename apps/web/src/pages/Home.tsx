@@ -124,7 +124,7 @@ function useChannels(): ChannelInfo[] {
           'Plain HTTPS endpoints, no API key, no sign-up. Script your checks, wire them into CI, or call them from any language.',
         request: `curl "${API_BASE_URL}/api/v1/ip?cidr=${EXAMPLE_CIDR}"`,
         requestLabel: 'Shell',
-        cta: { label: 'Read the API guide', to: '/blog/mcp-server-for-ai-agents' },
+        cta: { label: 'Read the API guide', to: '/api' },
       },
       {
         id: 'mcp',
@@ -138,7 +138,7 @@ function useChannels(): ChannelInfo[] {
           2,
         ),
         requestLabel: 'mcp.json',
-        cta: { label: 'Connect your agent', to: '/blog/mcp-server-for-ai-agents' },
+        cta: { label: 'Connect your agent', to: '/mcp' },
       },
     ],
     [],

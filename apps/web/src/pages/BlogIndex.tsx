@@ -27,7 +27,7 @@ function BlogIndex() {
   usePageMeta({
     title: 'Blog — WebTools',
     description:
-      'Practical guides on JWTs, UUIDs, NanoIDs, ULIDs, X.509 certificates and giving AI agents real tools via MCP.',
+      'Practical guides on JWTs, UUIDs, NanoIDs, ULIDs, X.509 certificates, hashes, passwords and TOTP.',
   })
 
   const [searchParams, setSearchParams] = useSearchParams()

@@ -1,0 +1,5 @@
+# Cloudflare Pages redirects.
+# https://developers.cloudflare.com/pages/configuration/redirects/
+
+# The MCP guide became the /mcp page.
+/blog/mcp-server-for-ai-agents /mcp 301
