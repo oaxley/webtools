@@ -13,6 +13,7 @@ import { mdxComponents } from '../blog/mdxComponents'
 import { ReadingProgress, TableOfContents } from '../blog/PostAside'
 import type { PostHeading } from '../blog/types'
 import { MCP_URL } from '../blog/site'
+import { MCP_PAGE } from '../content/mcpMeta'
 import { TOOLS } from '../tools'
 import { usePageMeta } from '../usePageMeta'
 import './Blog.css'
@@ -29,9 +30,8 @@ const HEADINGS: PostHeading[] = [
   { depth: 2, text: 'Next steps', id: 'next-steps' },
 ]
 
-const TITLE = 'MCP server'
-const DESCRIPTION =
-  'Connect Claude, Cursor, OpenCode or your own agent to WebTools over MCP, so it decodes JWTs and certificates, does subnet math and generates IDs with real code instead of guesses.'
+const TITLE = MCP_PAGE.title
+const DESCRIPTION = MCP_PAGE.description
 
 function McpPage() {
   const articleRef = useRef<HTMLElement>(null)
@@ -53,10 +53,10 @@ function McpPage() {
             </div>
             <div
               className="post-hero-tile"
-              style={{ '--cover-accent': '#4f46e5' } as React.CSSProperties}
+              style={{ '--cover-accent': MCP_PAGE.accent } as React.CSSProperties}
               aria-hidden="true"
             >
-              <span>MCP</span>
+              <span>{MCP_PAGE.monogram}</span>
             </div>
           </div>
         </div>

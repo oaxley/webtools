@@ -11,10 +11,11 @@
  *     dist/blog/<slug>.html         one per post: title, description,
  *                                   canonical, Open Graph, JSON-LD
  *     dist/blog/rss.xml             RSS 2.0 feed
- *     dist/sitemap.xml              home, tools and posts
+ *     dist/sitemap.xml              home, tools, /mcp and posts
  *     dist/<tool>.html              one per available tool (meta tags)
+ *     dist/mcp.html                 the MCP server page
  *     dist/og/**.png                1200×630 link-preview images
- *                                   (default, blog, posts, tools)
+ *                                   (default, blog, mcp, posts, tools)
  *     dist/apple-touch-icon.png     180×180 app icon
  *   `<name>.html` (not `<name>/index.html`) so Pages serves them at the
  *   canonical, slash-less URLs without a redirect. Pages serves them
@@ -30,6 +31,7 @@ import { TOOLS } from '../src/tools.ts'
 import type { PostMeta } from '../src/blog/types.ts'
 import { loadPosts, POSTS_DIR } from './blogPosts.ts'
 import { coverOf } from '../src/blog/cover.ts'
+import { MCP_PAGE } from '../src/content/mcpMeta.ts'
 import { OG_HEIGHT, OG_WIDTH, renderAppIcon, renderOgCard, type OgCard } from './ogImages.ts'
 
 const VIRTUAL_ID = 'virtual:blog-posts'
@@ -150,6 +152,7 @@ function renderSitemap(posts: PostMeta[], siteUrl: string): string {
   const urls: { loc: string; lastmod?: string }[] = [
     { loc: `${siteUrl}/` },
     ...TOOLS.filter((t) => t.available).map((t) => ({ loc: `${siteUrl}${t.path}` })),
+    { loc: `${siteUrl}${MCP_PAGE.path}` },
     { loc: `${siteUrl}/blog`, lastmod: posts[0]?.updated ?? posts[0]?.date },
     ...posts.map((p) => ({
       loc: `${siteUrl}/blog/${p.slug}`,
@@ -259,6 +262,23 @@ export function blogStatic(options: Options = {}): Plugin {
           footer: [`${list.length} guides`, 'RSS feed'],
         }),
         imageAlt: `${SITE_CONFIG.name} blog`,
+      })
+
+      const mcpTools = available.filter((t) => t.mcp).length
+      page(`${MCP_PAGE.path.slice(1)}.html`, {
+        title: `${MCP_PAGE.title} — ${SITE_CONFIG.name}`,
+        description: MCP_PAGE.description,
+        url: `${siteUrl}${MCP_PAGE.path}`,
+        type: 'website',
+        image: await og('mcp', {
+          eyebrow: 'For AI agents',
+          title: MCP_PAGE.title,
+          description: MCP_PAGE.description,
+          monogram: MCP_PAGE.monogram,
+          accent: MCP_PAGE.accent,
+          footer: [`${mcpTools} tools`, 'No API key', 'No sign-up'],
+        }),
+        imageAlt: `${SITE_CONFIG.name} ${MCP_PAGE.title}: connect your AI agent`,
       })
 
       for (const tool of available) {

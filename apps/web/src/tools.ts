@@ -213,6 +213,8 @@ export const TOOLS: Tool[] = [
     monogram: 'PW',
     accent: '#4d7c0f',
     available: true,
+    api: { method: 'GET', path: '/api/v1/password' },
+    mcp: 'generate_password',
   },
   {
     id: 'totp',
