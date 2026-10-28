@@ -68,7 +68,7 @@ strings are more than twice as large and slower to compare.
 ### What about IDs created in the same millisecond?
 
 A server can easily create several IDs within one millisecond. The WebTools generator
-follows RFC 9562's "fixed-length counter" method: when the timestamp hasn't
+follows [RFC 9562's "fixed-length counter" method](https://datatracker.ietf.org/doc/html/rfc9562#section-6.2): when the timestamp hasn't
 moved, the 12 bits right after the version digit act as a counter, so
 IDs keep strictly increasing. You can see it in a batch:
 

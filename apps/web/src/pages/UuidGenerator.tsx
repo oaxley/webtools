@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { generateUUIDs, MAX_UUID_COUNT, type UuidVersion } from '@webtools/core'
 import { IdResults } from '../components/IdResults'
+import { RfcLink } from '../components/RfcLink'
 import { SegmentedControl, ToolPage } from '../components/ToolPage'
 import { readBool, readInt, writeParams } from '../urlParams'
 
@@ -58,7 +59,12 @@ function UuidGenerator() {
   return (
     <ToolPage
       toolId="uuid"
-      lede={`Generate RFC 9562 version 7 or version 4 UUIDs, up to ${MAX_UUID_COUNT} at a time.`}
+      lede={
+        <>
+          Generate <RfcLink rfc="RFC 9562" inline>RFC 9562</RfcLink> version 7 or version 4 UUIDs,
+          up to {MAX_UUID_COUNT} at a time.
+        </>
+      }
     >
       <form
         className="tool-controls"

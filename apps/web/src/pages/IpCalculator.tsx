@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTheme } from '../theme'
 import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { RfcLink } from '../components/RfcLink'
 import { Examples, ToolPage } from '../components/ToolPage'
 import './IpCalculator.css'
 
@@ -887,7 +888,11 @@ function IpCalculator() {
             <dd>
               The first and last addresses you can actually assign to devices:
               network address + 1 up to broadcast address − 1. On a{' '}
-              <code>/31</code> link both addresses are usable (RFC 3021), and on
+              <code>/31</code> link both addresses are usable (
+              <RfcLink rfc="RFC 3021" inline>
+                RFC 3021
+              </RfcLink>
+              ), and on
               a <code>/32</code> there is a single host.
             </dd>
           </div>

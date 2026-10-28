@@ -11,12 +11,12 @@ import {
   type X509FieldSpec,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { RfcLink } from '../components/RfcLink'
 import { Examples, ToolPage } from '../components/ToolPage'
 import { clearFragment, readFragmentParam } from '../urlParams'
 import {
   DecodedBlock,
   DefinitionLink,
-  RfcLink,
   type KeyAnnotator,
 } from './decoderShared'
 import { flashInJson, jumpToFieldGuide } from './decoderUtils'

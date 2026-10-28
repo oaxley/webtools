@@ -335,3 +335,8 @@
 .totp-steps .is-offset {
   background: var(--totp-offset);
 }
+
+.totp-steps-hint {
+  margin: -6px 0 10px;
+  font-size: 13px;
+}

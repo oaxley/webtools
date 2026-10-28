@@ -44,7 +44,7 @@ without it.
 ## Base64URL: the variant in your JWTs
 
 `+` and `/` mean something in URLs and file names, and `=` does too in query
-strings. **Base64URL** (RFC 4648 §5) swaps in `-` and `_` and usually drops the
+strings. **Base64URL** ([RFC 4648 §5](https://datatracker.ietf.org/doc/html/rfc4648#section-5)) swaps in `-` and `_` and usually drops the
 padding:
 
 ```text
@@ -60,7 +60,7 @@ to know which one you have.
 
 ## Base32: for humans and case-insensitive systems
 
-Base32 has 32 characters, 5 bits each, so 5 bytes become 8 characters: **+60%**.
+Base32 ([RFC 4648 §6](https://datatracker.ietf.org/doc/html/rfc4648#section-6)) has 32 characters, 5 bits each, so 5 bytes become 8 characters: **+60%**.
 That's bigger than Base64, but the alphabet is **one case only**, `A–Z` and `2–7`
 (no `0`, `1` or `8`, which look like `O`, `I` and `B`). That makes it right for:
 

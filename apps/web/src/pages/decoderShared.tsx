@@ -6,7 +6,7 @@
  * duplication, and so future decoders can pick them up for free.
  *
  * The components are intentionally decoder-agnostic — they know how to
- * render JSON, resolve RFC references, and render a titled decoded block,
+ * render JSON and render a titled decoded block,
  * but they do not know anything about JWT claims or X.509 fields. Field-
  * specific annotations are passed in via the optional `annotateKey` prop
  * on `JsonTree`.
@@ -15,7 +15,6 @@
  * keep hot-reloading these components.
  */
 import type { ReactNode } from 'react'
-import { rfcUrl } from './decoderUtils'
 import './decoderShared.css'
 
 // ---------------------------------------------------------------------------
@@ -180,10 +179,6 @@ function escapeString(s: string): string {
     .replace(/\t/g, '\\t')
 }
 
-// ---------------------------------------------------------------------------
-// RFC / OIDC spec link.
-// ---------------------------------------------------------------------------
-
 /**
  * Small inline icon button rendered at the end of each field-list row.
  * Jumps to the field's definition in the field guide below.
@@ -218,25 +213,5 @@ export function DefinitionLink({
         <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
       </svg>
     </button>
-  )
-}
-
-export function RfcLink({ rfc }: { rfc: string }) {
-  const href = rfcUrl(rfc)
-  if (!href) {
-    return <span className="field-rfc">{rfc}</span>
-  }
-  return (
-    <a
-      className="field-rfc field-rfc-link"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {rfc}
-      <span aria-hidden="true" className="field-rfc-arrow">
-        ↗
-      </span>
-    </a>
   )
 }

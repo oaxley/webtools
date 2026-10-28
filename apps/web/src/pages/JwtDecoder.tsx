@@ -10,7 +10,8 @@ import {
 import CopyJsonButton from '../components/CopyJsonButton'
 import { Examples, ToolPage } from '../components/ToolPage'
 import { clearFragment, readFragmentParam } from '../urlParams'
-import { DecodedBlock, DefinitionLink, RfcLink } from './decoderShared'
+import { RfcLink } from '../components/RfcLink'
+import { DecodedBlock, DefinitionLink } from './decoderShared'
 import { flashInJson, jumpToFieldGuide } from './decoderUtils'
 import './JwtDecoder.css'
 

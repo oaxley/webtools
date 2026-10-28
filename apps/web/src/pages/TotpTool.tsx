@@ -27,6 +27,7 @@ import {
   type TotpMatch,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { RfcLink } from '../components/RfcLink'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
 import { clearFragment, readFragmentParam, readInt, writeParams } from '../urlParams'
 import '../components/IoPanels.css'
@@ -248,7 +249,13 @@ function TotpTool() {
       toolId="totp"
       wide
       className="totp-page"
-      lede="Generate TOTP codes, scan the QR code with Google Authenticator or any authenticator app, check a code, and see every step of the computation. Everything runs in your browser."
+      lede={
+        <>
+          Generate <RfcLink rfc="RFC 6238" inline>RFC 6238</RfcLink> TOTP codes, scan the QR code
+          with Google Authenticator or any authenticator app, check a code, and see every step of
+          the computation. Everything runs in your browser.
+        </>
+      }
     >
       <div className="tool-controls totp-secret">
         <div className="tool-field totp-secret-field">
@@ -291,8 +298,11 @@ function TotpTool() {
       ) : (
         bits < 128 && (
           <p className="tool-hint totp-warn">
-            This secret is {bits} bits. RFC 4226 asks for at least 128 bits and recommends 160 (32
-            Base32 characters).
+            This secret is {bits} bits.{' '}
+            <RfcLink rfc="RFC 4226 §4" inline>
+              RFC 4226
+            </RfcLink>{' '}
+            asks for at least 128 bits and recommends 160 (32 Base32 characters).
           </p>
         )
       )}
@@ -475,6 +485,10 @@ function TotpTool() {
       {details && key && (
         <section className="totp-steps" aria-labelledby="totp-steps-title">
           <h2 id="totp-steps-title">How this code was computed</h2>
+          <p className="totp-steps-hint">
+            HOTP (<RfcLink rfc="RFC 4226 §5.3" inline>RFC 4226 §5.3</RfcLink>) applied to the time
+            step (<RfcLink rfc="RFC 6238 §4.2" inline>RFC 6238 §4.2</RfcLink>).
+          </p>
           <ol>
             <li>
               <span className="totp-step-name">Time step</span>
@@ -557,7 +571,7 @@ function TotpTool() {
         items={[
           {
             label: 'RFC 6238 test secret',
-            title: 'The ASCII key "12345678901234567890" from RFC 6238 Appendix B',
+            title: 'The ASCII key "12345678901234567890" from RFC 6238 Appendix B (test vectors)',
             onClick: () => {
               setIssuer('RFC 6238')
               setAccount('test')
@@ -581,7 +595,10 @@ function TotpTool() {
         </p>
         <dl>
           <div>
-            <dt>The secret</dt>
+            <dt>
+              The secret
+              <RfcLink rfc="RFC 4226 §4" />
+            </dt>
             <dd>
               Random bytes, usually 20 (160 bits), shown as Base32 so you can type them if the QR
               code won't scan. Whoever holds the secret can make every future code, so a site has
@@ -589,39 +606,65 @@ function TotpTool() {
             </dd>
           </div>
           <div>
-            <dt>The time step</dt>
+            <dt>
+              The time step
+              <RfcLink rfc="RFC 6238 §4.2" />
+            </dt>
             <dd>
               Unix time divided by 30 seconds, rounded down. Both sides get the same number as long
               as their clocks agree, which is why a phone with the wrong time produces wrong codes.
             </dd>
           </div>
           <div>
-            <dt>HOTP and truncation</dt>
+            <dt>
+              HOTP and truncation
+              <RfcLink rfc="RFC 4226 §5.3" />
+            </dt>
             <dd>
-              The step goes through HMAC with the secret (RFC 4226). The last 4 bits of the result
+              The step goes through HMAC with the secret (HOTP,{' '}
+              <RfcLink rfc="RFC 4226" inline>
+                RFC 4226
+              </RfcLink>
+              ). The last 4 bits of the result
               pick 4 bytes from it, which become a 31-bit number, and its last 6 digits are the
               code.
             </dd>
           </div>
           <div>
-            <dt>Drift window</dt>
+            <dt>
+              Drift window
+              <RfcLink rfc="RFC 6238 §5.2" />
+            </dt>
             <dd>
               Servers usually accept the previous and next codes as well, to cover clock drift and
-              slow typing. That makes 3 valid codes out of a million at any moment, so rate
-              limiting matters.
+              slow typing: the RFC recommends at most one step either way. That makes 3 valid codes
+              out of a million at any moment, so the server must limit attempts, as{' '}
+              <RfcLink rfc="RFC 4226 §7.3" inline>
+                RFC 4226 §7.3
+              </RfcLink>{' '}
+              requires.
             </dd>
           </div>
           <div>
-            <dt>Single use</dt>
+            <dt>
+              Single use
+              <RfcLink rfc="RFC 6238 §5.2" />
+            </dt>
             <dd>
               A good server remembers the last time step it accepted and refuses the same code (or
               an older one) again, so a code seen over someone's shoulder can't be replayed.
             </dd>
           </div>
           <div>
-            <dt>Algorithm, digits, period</dt>
+            <dt>
+              Algorithm, digits, period
+              <RfcLink rfc="RFC 6238 §1.2" />
+            </dt>
             <dd>
-              The RFC allows SHA-256 and SHA-512, 8 digits and other periods, but almost every
+              <RfcLink rfc="RFC 6238 §1.2" inline>
+                RFC 6238
+              </RfcLink>{' '}
+              allows SHA-256 and SHA-512, 8 digits and other periods, but almost every
               site uses SHA-1, 6 digits and 30 seconds, and several apps silently ignore anything
               else. HMAC-SHA1 is still safe here.
             </dd>

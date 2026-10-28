@@ -49,7 +49,7 @@ can compute a valid `sha256(secret + body + padding + anything)`. This is a
 
 ## HMAC: two hashes and a key
 
-**HMAC** (RFC 2104) fixes this with a simple construction:
+**HMAC** ([RFC 2104](https://datatracker.ietf.org/doc/html/rfc2104)) fixes this with a simple construction:
 
 ```text
 HMAC(key, message) = H( (key ⊕ opad) ‖ H( (key ⊕ ipad) ‖ message ) )

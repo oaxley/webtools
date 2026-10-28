@@ -7,7 +7,7 @@
  * same. The text being converted is never written to the URL: it may be
  * a secret. Only the settings are (`/base64?mode=decode&urlsafe=1`).
  */
-import { useDeferredValue, useEffect, useId, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   convertEncoding,
@@ -19,6 +19,7 @@ import {
   type EncodingOperation,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { RfcLink } from '../components/RfcLink'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
 import { clearFragment, readBool, readFragmentParam, writeParams } from '../urlParams'
 import '../components/IoPanels.css'
@@ -26,14 +27,20 @@ import './EncodingTool.css'
 
 interface EncodingMeta {
   label: string
-  lede: string
+  lede: ReactNode
   examples: { label: string; mode: EncodingOperation; input: string; format?: BytesFormat }[]
 }
 
 const META: Record<BaseEncoding, EncodingMeta> = {
   base64: {
     label: 'Base64',
-    lede: 'Encode text or bytes as Base64, or decode it back. Standard and URL-safe alphabets, with or without padding. Everything runs in your browser.',
+    lede: (
+      <>
+        Encode text or bytes as <RfcLink rfc="RFC 4648 §4" inline>RFC 4648</RfcLink> Base64, or
+        decode it back. Standard and URL-safe alphabets, with or without padding. Everything runs
+        in your browser.
+      </>
+    ),
     examples: [
       { label: 'Encode text', mode: 'encode', input: 'Hello, World!' },
       { label: 'Decode Base64', mode: 'decode', input: 'SGVsbG8sIFdvcmxkIQ==' },
@@ -42,7 +49,13 @@ const META: Record<BaseEncoding, EncodingMeta> = {
   },
   base32: {
     label: 'Base32',
-    lede: 'Encode text or bytes as Base32, or decode it back. RFC 4648 (used by TOTP secrets) and Crockford alphabets. Everything runs in your browser.',
+    lede: (
+      <>
+        Encode text or bytes as Base32, or decode it back.{' '}
+        <RfcLink rfc="RFC 4648 §6" inline>RFC 4648</RfcLink> (used by TOTP secrets) and Crockford
+        alphabets. Everything runs in your browser.
+      </>
+    ),
     examples: [
       { label: 'Encode text', mode: 'encode', input: 'Hello, World!' },
       { label: 'Decode Base32', mode: 'decode', input: 'JBSWY3DPFQQFO33SNRSCC===' },
@@ -397,19 +410,33 @@ function EncodingToolPage({ encoding }: { encoding: BaseEncoding }) {
         </p>
         <dl>
           <div>
-            <dt>Base64</dt>
+            <dt>
+              Base64
+              <RfcLink rfc="RFC 4648 §4" />
+            </dt>
             <dd>
               64 characters (<code>A–Z a–z 0–9 + /</code>), 4 characters for every 3 bytes
               (+33%). The most compact of the three, used by email attachments, data URLs, PEM
               certificates and HTTP Basic auth. The URL-safe variant swaps <code>+ /</code> for{' '}
-              <code>- _</code> and usually drops the <code>=</code> padding; JWTs use it.
+              <code>- _</code> and usually drops the <code>=</code> padding (
+              <RfcLink rfc="RFC 4648 §5" inline>
+                §5
+              </RfcLink>
+              ); JWTs use it.
             </dd>
           </div>
           <div>
-            <dt>Base32</dt>
+            <dt>
+              Base32
+              <RfcLink rfc="RFC 4648 §6" />
+            </dt>
             <dd>
               32 characters, 8 for every 5 bytes (+60%). Case-insensitive, so it survives being
-              read aloud or typed by hand. RFC 4648 (<code>A–Z 2–7</code>) is what TOTP
+              read aloud or typed by hand.{' '}
+              <RfcLink rfc="RFC 4648 §6" inline>
+                RFC 4648
+              </RfcLink>{' '}
+              (<code>A–Z 2–7</code>) is what TOTP
               authenticator secrets use. Crockford&apos;s alphabet (<code>0–9</code> and letters
               minus <code>I L O U</code>) is used by ULIDs and reads <code>O</code> as 0 and{' '}
               <code>I</code>/<code>L</code> as 1 when decoding.

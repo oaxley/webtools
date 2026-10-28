@@ -22,6 +22,7 @@ import {
   type HashResult,
 } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
+import { RfcLink } from '../components/RfcLink'
 import { Examples, SegmentedControl, ToolPage } from '../components/ToolPage'
 import { clearFragment, readBool, readFragmentParam, writeParams } from '../urlParams'
 import '../components/IoPanels.css'
@@ -403,9 +404,16 @@ function HashGenerator() {
             </dd>
           </div>
           <div>
-            <dt>HMAC</dt>
+            <dt>
+              HMAC
+              <RfcLink rfc="RFC 2104 §2" />
+            </dt>
             <dd>
-              A hash mixed with a secret key (RFC 2104). Only someone with the key can produce or
+              A hash mixed with a secret key (
+              <RfcLink rfc="RFC 2104" inline>
+                RFC 2104
+              </RfcLink>
+              ). Only someone with the key can produce or
               check it, which is how webhooks (Stripe, GitHub, Slack), AWS request signing and JWTs
               signed with <code>HS256</code> prove a message is genuine. HMAC-MD5 and HMAC-SHA1 are
               still considered safe, though SHA-256 is preferred.
