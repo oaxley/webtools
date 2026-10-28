@@ -883,3 +883,9 @@
 .tabs-panel figure[data-rehype-pretty-code-figure] {
   margin: 0;
 }
+
+/* Two code blocks in a row (e.g. a script and its output): keep them apart.
+   Needs the extra specificity to win over the reset above. */
+.tabs-panel > * + figure[data-rehype-pretty-code-figure] {
+  margin-top: 12px;
+}
