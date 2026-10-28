@@ -139,6 +139,34 @@ export {
 export type { AttackScenarioId, CrackTime, StrengthScore } from "./passwordCrackTime";
 
 export {
+    buildOtpauthUri,
+    decodeTotpSecret,
+    generateTotpSecret,
+    hotp,
+    hotpDetails,
+    parseOtpauthUri,
+    TOTP_ALGORITHM_NAMES,
+    TOTP_ALGORITHMS,
+    TOTP_DEFAULT_SECRET_BYTES,
+    TOTP_DEFAULTS,
+    TOTP_MAX_DIGITS,
+    TOTP_MIN_DIGITS,
+    totp,
+    totpCounter,
+    totpSecondsRemaining,
+    verifyTotp,
+} from "./totp";
+export type {
+    HotpDetails,
+    HotpOptions,
+    OtpauthParams,
+    TotpAlgorithm,
+    TotpMatch,
+    TotpOptions,
+    TotpVerifyOptions,
+} from "./totp";
+
+export {
     generateULID,
     generateULIDs,
     MAX_ULID_COUNT,

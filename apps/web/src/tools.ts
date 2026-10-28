@@ -215,6 +215,17 @@ export const TOOLS: Tool[] = [
     available: true,
   },
   {
+    id: 'totp',
+    category: 'security',
+    name: 'TOTP Generator',
+    description: 'Generate and check 2FA codes, with a QR code for your authenticator app.',
+    tags: ['totp', '2fa', 'mfa', 'otp', 'hotp', 'authenticator', 'qr code', 'rfc 6238'],
+    path: '/totp',
+    monogram: 'OTP',
+    accent: '#0f766e',
+    available: true,
+  },
+  {
     id: 'headers',
     category: 'network',
     name: 'HTTP Headers Inspector',

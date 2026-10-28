@@ -274,7 +274,12 @@ export function blogStatic(options: Options = {}): Plugin {
             description: tool.description,
             monogram: tool.monogram,
             accent: tool.accent,
-            footer: ['Runs in your browser', 'REST API', 'MCP'],
+            // Only advertise the API and MCP for tools that have them.
+            footer: [
+              'Runs in your browser',
+              ...(tool.api ? ['REST API'] : []),
+              ...(tool.mcp ? ['MCP'] : []),
+            ],
           }),
           imageAlt: `${tool.name} on ${SITE_CONFIG.name}`,
           jsonLd: {

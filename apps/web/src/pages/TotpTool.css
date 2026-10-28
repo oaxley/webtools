@@ -1,0 +1,337 @@
+/* TOTP generator page (TotpTool.tsx). Panels: components/IoPanels.css. */
+
+.totp-page {
+  --totp-window: color-mix(in srgb, #0f766e 22%, transparent);
+  --totp-offset: color-mix(in srgb, #ea580c 28%, transparent);
+
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  & .io-grid,
+  & .tool-hint {
+    margin: 0;
+  }
+}
+
+/* ---- Secret ------------------------------------------------------------ */
+
+.totp-secret {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.totp-secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.totp-secret-input {
+  flex: 1 1 320px;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+}
+
+.totp-private {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.totp-warn {
+  color: var(--warning);
+}
+
+.totp-label-field {
+  flex: 1 1 180px;
+
+  & .tool-input {
+    font-family: var(--font-sans);
+  }
+}
+
+/* ---- Live code --------------------------------------------------------- */
+
+.totp-live {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr 1fr;
+
+    & .totp-live-main {
+      grid-column: 1 / -1;
+      grid-row: 1;
+    }
+  }
+}
+
+.totp-live-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text);
+
+  &:last-child {
+    text-align: right;
+  }
+
+  & code {
+    font-family: var(--font-mono);
+    font-size: 17px;
+    color: var(--text);
+    background: none;
+    padding: 0;
+  }
+}
+
+.totp-live-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.totp-live-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.totp-code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: clamp(30px, 5vw, 42px);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
+.totp-live-sub {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.totp-ring {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 52px;
+
+  & svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  & circle {
+    fill: none;
+    stroke-width: 4;
+  }
+
+  & span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-h);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.totp-ring-track {
+  stroke: var(--border);
+}
+
+.totp-ring-bar {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+
+.totp-ring.is-ending .totp-ring-bar {
+  stroke: var(--danger);
+}
+
+/* ---- QR code, URI, verify ---------------------------------------------- */
+
+.totp-qr-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+}
+
+.totp-qr {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.totp-qr-hint {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+
+  & strong {
+    color: var(--warning);
+    font-weight: 600;
+  }
+}
+
+.totp-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.totp-uri {
+  min-height: 110px;
+
+  &[aria-invalid='true'] {
+    background: var(--danger-bg);
+  }
+
+  @media (max-width: 760px) {
+    min-height: 110px;
+  }
+}
+
+.totp-error {
+  color: var(--danger);
+}
+
+.totp-verify {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.totp-verify-input {
+  max-width: 220px;
+  font-size: 22px;
+  letter-spacing: 0.15em;
+}
+
+.totp-verdict {
+  margin: 0;
+  font-size: 14px;
+
+  & .is-valid {
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  & .is-invalid {
+    color: var(--danger);
+    font-weight: 600;
+  }
+}
+
+/* ---- Computation steps ------------------------------------------------- */
+
+.totp-steps {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+
+  & h2 {
+    margin: 0 0 12px;
+    font-size: 17px;
+    color: var(--text-h);
+  }
+
+  & ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  & li {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 4px 16px;
+    padding: 9px 0;
+
+    & + li {
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 560px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  & code {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--text-h);
+    background: none;
+    padding: 0;
+  }
+
+  & small {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  & mark {
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+}
+
+.totp-step-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.totp-step-value {
+  min-width: 0;
+}
+
+.totp-break {
+  overflow-wrap: anywhere;
+}
+
+.totp-hmac span {
+  border-radius: 3px;
+}
+
+.totp-steps .is-window {
+  background: var(--totp-window);
+}
+
+.totp-steps .is-offset {
+  background: var(--totp-offset);
+}
