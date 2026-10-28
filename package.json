@@ -10,6 +10,9 @@
   "scripts": {
     "dev:web": "pnpm --filter @webtools/web dev",
     "dev:worker": "pnpm --filter @webtools/worker dev",
+    "build": "pnpm --filter @webtools/web build",
+    "build:web": "pnpm --filter @webtools/web build",
+    "preview:web": "pnpm --filter @webtools/web preview",
     "test": "pnpm --filter @webtools/core test"
   },
   "keywords": [],
