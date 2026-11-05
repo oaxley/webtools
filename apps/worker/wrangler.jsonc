@@ -17,7 +17,9 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	// Bundle `src/openapi.yaml` as a string, served by `routes/openapi.ts`.
+	"rules": [{ "type": "Text", "globs": ["**/*.yaml"], "fallthrough": true }]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

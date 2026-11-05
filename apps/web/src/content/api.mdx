@@ -1,0 +1,121 @@
+Every tool on this site that works on data you give it is also an HTTPS
+endpoint. They run the same code as the web pages and the [MCP server](/mcp),
+so a script gets exactly the answer you would see in the browser.
+
+There is no API key and no sign-up. Responses are JSON.
+
+```bash
+curl "@@API_BASE@@/api/v1/ip?cidr=10.20.0.0/22"
+```
+
+```json
+{
+  "network": "10.20.0.0",
+  "broadcast": "10.20.3.255",
+  "prefix": 22,
+  "subnetMask": "255.255.252.0",
+  "firstHost": "10.20.0.1",
+  "lastHost": "10.20.3.254",
+  "totalAddresses": 1024,
+  "usableHosts": 1022,
+  "routable": false
+}
+```
+
+## Import into your API client
+
+The whole API is described in an [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0)
+document. It is written by hand in YAML, so each parameter comes with comments on
+its accepted values, and the test suite checks it against the real endpoints. Import
+it once and every endpoint shows up with its parameters, limits and working examples:
+
+```text title="OpenAPI document"
+@@API_BASE@@/api/v1/openapi.yaml
+```
+
+<Tabs>
+<Tab label="Postman">
+
+Click **Import**, paste the URL above and confirm. Postman turns the document
+into a collection, with a `baseUrl` variable already set to the server it lists.
+
+</Tab>
+<Tab label="Bruno">
+
+Choose **Import Collection**, pick the OpenAPI format, and give it the URL or the
+downloaded file. Bruno creates one request per endpoint, grouped by category.
+
+</Tab>
+<Tab label="Insomnia">
+
+Choose **Import**, then import from a URL and paste the one above. Insomnia keeps
+the document as a design file and builds a collection of ready-to-send requests
+from it.
+
+</Tab>
+<Tab label="Command line">
+
+```bash
+curl -O @@API_BASE@@/api/v1/openapi.yaml
+```
+
+Feed it to a client generator such as `openapi-generator-cli` or
+`openapi-typescript`, or to a linter like Spectral.
+
+</Tab>
+</Tabs>
+
+## Conventions
+
+- **Base URL**: `@@API_BASE@@/api/v1`. The version is in the path. Within `v1`,
+  fields may be added, but existing ones keep their name and meaning.
+- **GET for settings, POST for payloads.** Generators take a few harmless settings in
+  the query string. Anything that might be a secret (a token, a certificate, data to
+  hash or encode, an HMAC key) goes in a POST body, so it never ends up in a URL, a
+  proxy log or a `Referer` header.
+- **Three body formats.** POST endpoints accept `application/json`,
+  `application/x-www-form-urlencoded` and `multipart/form-data`, with the same field
+  names in all three. Booleans can be sent as `true`/`false` or `1`/`0`. So
+  `curl --data-urlencode data@token.txt` works as well as a JSON body.
+- **No caching of secrets.** Responses that contain a generated value or anything
+  derived from your input are sent with `Cache-Control: no-store`.
+- **Nothing is stored.** Payloads are neither saved nor logged, and decoders never
+  echo their input back.
+
+## Errors
+
+Every error is a JSON object with a single `error` message, written to be shown to a
+person as is:
+
+```json
+{ "error": "count must be an integer between 1 and 10." }
+```
+
+| Status | When |
+|--------|------|
+| `400` | A parameter is missing, malformed or out of range, or the input can't be decoded |
+| `404` | No such endpoint (plain text, not JSON) |
+| `413` | The body is larger than the endpoint accepts (see the limits below) |
+| `415` | A POST body that is not JSON, form-encoded or multipart |
+
+## Limits
+
+These limits keep every request well within a single Worker's CPU budget. They are
+generous for real-world inputs:
+
+| Endpoint | Limit |
+|----------|-------|
+| Generators (`uuid`, `nanoid`, `ulid`) | 10 IDs per request |
+| `password` | 20 passwords per request |
+| `hash` | 64 KiB of input, 256 KiB of body |
+| `base64`, `base32` | 256 KiB of input, 1 MiB of body |
+| `base58` | 1 KiB of input (its conversion is quadratic), 1 MiB of body |
+
+Need more IDs? Make more requests. Each one is cheap.
+
+<Callout type="warning">
+The JWT and certificate decoders **do not verify signatures or chains**. "Decoded"
+does not mean "trusted". And although nothing is stored, a token that is still valid
+is best left on your machine: the [JWT decoder](/jwt) does the same job entirely in
+your browser.
+</Callout>

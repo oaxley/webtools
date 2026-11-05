@@ -1,0 +1,284 @@
+/* `/api` endpoint reference. The guide part reuses the post styles
+   (Blog.css); this file only adds what the generated reference needs. */
+
+/* ---- Hero ---------------------------------------------------------------- */
+
+.api-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px !important;
+}
+
+/* The copy button sits on the dark hero: match the ink palette. */
+.api-hero-copy.copy-json-button {
+  font-size: 14px;
+  padding: 9px 14px;
+  color: var(--ink-text);
+  background: var(--ink-surface);
+  border-color: var(--ink-border);
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    border-color: var(--ink-accent);
+  }
+}
+
+/* ---- Method badges ------------------------------------------------------- */
+
+.api-method {
+  display: inline-block;
+  min-width: 3.6em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.api-method-get {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.api-method-post {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* ---- One endpoint -------------------------------------------------------- */
+
+.prose .api-endpoint {
+  margin-top: 2.4em;
+  padding-top: 1.6em;
+  border-top: 1px solid var(--border);
+
+  & h3 {
+    margin-top: 0;
+  }
+
+  & h4 {
+    margin: 1.6em 0 0.6em;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+}
+
+.prose .api-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+
+  & > code {
+    font-size: 14px;
+  }
+}
+
+.prose .api-route-tool {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ---- Field tables -------------------------------------------------------- */
+
+.prose .table-scroll:has(.api-fields) {
+  margin: 0.8em 0 0;
+}
+
+.prose table.api-fields {
+  & tbody th {
+    width: 1%;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 400;
+    background: none;
+    border-bottom: 0;
+    padding: 10px 14px;
+    vertical-align: top;
+  }
+
+  & tbody tr + tr th {
+    border-top: 1px solid var(--border);
+  }
+
+  & tbody th code {
+    display: block;
+    width: fit-content;
+    font-weight: 600;
+  }
+
+  & td > div > p {
+    margin: 0;
+  }
+
+  & td > div > * + * {
+    margin-top: 0.5em;
+  }
+
+  & td ul {
+    margin: 0.4em 0 0;
+    padding-left: 1.2em;
+  }
+
+  /* Descriptions may hold long values (`lower,upper,digits`): wrap them. */
+  & td code {
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+.api-field-type,
+.api-field-required {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.api-field-required {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.prose .api-field-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 8px 0 0;
+  font-size: 13px;
+
+  & > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  & dt {
+    color: var(--text-soft);
+    font-weight: 600;
+  }
+
+  & dt::after {
+    content: ':';
+  }
+
+  & dd {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+  }
+}
+
+/* ---- Request / response samples ------------------------------------------ */
+
+.api-samples .tabs-list {
+  margin-bottom: 10px;
+}
+
+.api-sample {
+  display: grid;
+  gap: 10px;
+}
+
+/* Shiki emits its own <pre class="shiki">: lay it out like MDX blocks. */
+.prose .api-code pre {
+  max-height: 420px;
+  overflow: auto;
+
+  & code {
+    display: block;
+  }
+}
+
+.prose .api-code pre.shiki {
+  background: transparent !important;
+}
+
+.prose .api-sample-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+/* ---- Response fields and errors ------------------------------------------ */
+
+.prose .api-response-fields {
+  margin-top: 1.2em;
+
+  & > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+}
+
+.prose ul.api-errors {
+  list-style: none;
+  margin: 1.2em 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+
+  & li {
+    display: flex;
+    gap: 10px;
+    margin: 0;
+  }
+
+  & li > code {
+    flex-shrink: 0;
+    color: var(--danger);
+  }
+
+  & li p {
+    margin: 0;
+  }
+}
+
+/* ---- Aside --------------------------------------------------------------- */
+
+.api-aside-endpoints {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  & a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    margin: 0 -6px;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+  }
+
+  & a:hover {
+    color: var(--text-h);
+    background: var(--surface-2);
+  }
+
+  & code {
+    font-family: var(--font-mono);
+  }
+}

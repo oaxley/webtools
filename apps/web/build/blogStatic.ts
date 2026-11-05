@@ -3,6 +3,9 @@
  *
  * - `virtual:blog-posts` — validated, sorted post metadata for the app
  *   (listing page, post lookup). Drafts are included in dev only.
+ * - `virtual:api-reference` — the `/api` endpoint reference, built from
+ *   the worker's hand-written OpenAPI document (`build/apiReference.ts`).
+ *   The dev server also serves that document at `/openapi.yaml`.
  * - Replaces `@@API_BASE@@` in MDX sources with the public API origin
  *   *before* MDX/Shiki run, so code samples stay highlighted and the
  *   domain lives in one place (see `site.config.ts`).
@@ -11,11 +14,15 @@
  *     dist/blog/<slug>.html         one per post: title, description,
  *                                   canonical, Open Graph, JSON-LD
  *     dist/blog/rss.xml             RSS 2.0 feed
- *     dist/sitemap.xml              home, tools, /mcp and posts
+ *     dist/sitemap.xml              home, tools, /api, /mcp and posts
  *     dist/<tool>.html              one per available tool (meta tags)
  *     dist/mcp.html                 the MCP server page
+ *     dist/api.html                 the REST API page
+ *     dist/openapi.yaml             the OpenAPI document, `servers`
+ *                                   pointed at the API origin
  *     dist/og/**.png                1200×630 link-preview images
- *                                   (default, blog, mcp, posts, tools)
+ *                                   (default, blog, api, mcp, posts,
+ *                                   tools)
  *     dist/apple-touch-icon.png     180×180 app icon
  *   `<name>.html` (not `<name>/index.html`) so Pages serves them at the
  *   canonical, slash-less URLs without a redirect. Pages serves them
@@ -32,10 +39,14 @@ import type { PostMeta } from '../src/blog/types.ts'
 import { loadPosts, POSTS_DIR } from './blogPosts.ts'
 import { coverOf } from '../src/blog/cover.ts'
 import { MCP_PAGE } from '../src/content/mcpMeta.ts'
+import { API_PAGE, OPENAPI_PATH } from '../src/content/apiMeta.ts'
+import { buildApiReference, OPENAPI_FILE, openApiFor } from './apiReference.ts'
 import { OG_HEIGHT, OG_WIDTH, renderAppIcon, renderOgCard, type OgCard } from './ogImages.ts'
 
 const VIRTUAL_ID = 'virtual:blog-posts'
 const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID
+const API_VIRTUAL_ID = 'virtual:api-reference'
+const RESOLVED_API_VIRTUAL_ID = '\0' + API_VIRTUAL_ID
 
 interface Options {
   /** Public site origin; falls back to `SITE_CONFIG.defaultSiteUrl`. */
@@ -152,6 +163,7 @@ function renderSitemap(posts: PostMeta[], siteUrl: string): string {
   const urls: { loc: string; lastmod?: string }[] = [
     { loc: `${siteUrl}/` },
     ...TOOLS.filter((t) => t.available).map((t) => ({ loc: `${siteUrl}${t.path}` })),
+    { loc: `${siteUrl}${API_PAGE.path}` },
     { loc: `${siteUrl}${MCP_PAGE.path}` },
     { loc: `${siteUrl}/blog`, lastmod: posts[0]?.updated ?? posts[0]?.date },
     ...posts.map((p) => ({
@@ -197,14 +209,30 @@ export function blogStatic(options: Options = {}): Plugin {
     },
 
     resolveId(id) {
-      return id === VIRTUAL_ID ? RESOLVED_VIRTUAL_ID : undefined
+      if (id === VIRTUAL_ID) return RESOLVED_VIRTUAL_ID
+      if (id === API_VIRTUAL_ID) return RESOLVED_API_VIRTUAL_ID
+      return undefined
     },
 
-    load(id) {
+    async load(id) {
+      if (id === RESOLVED_API_VIRTUAL_ID) {
+        // Watched so dev picks up edits to the worker's document.
+        this.addWatchFile(join(config.root, OPENAPI_FILE))
+        const reference = await buildApiReference(config.root, apiBaseUrl)
+        return `export const API_REFERENCE = ${JSON.stringify(reference)};`
+      }
       if (id !== RESOLVED_VIRTUAL_ID) return undefined
       // Re-run when any post changes, so dev picks up frontmatter edits.
       const list = posts()
       return `export const POSTS = ${JSON.stringify(list)};`
+    },
+
+    configureServer(server) {
+      // Same file `vite build` writes to dist/, so the page's links work in dev.
+      server.middlewares.use(OPENAPI_PATH, (_req, res) => {
+        res.setHeader('Content-Type', 'application/yaml; charset=utf-8')
+        res.end(openApiFor(config.root, apiBaseUrl))
+      })
     },
 
     transform(code, id) {
@@ -213,6 +241,11 @@ export function blogStatic(options: Options = {}): Plugin {
     },
 
     handleHotUpdate({ file, server }) {
+      if (file.endsWith('openapi.yaml')) {
+        const mod = server.moduleGraph.getModuleById(RESOLVED_API_VIRTUAL_ID)
+        if (mod) server.moduleGraph.invalidateModule(mod)
+        return
+      }
       if (!file.endsWith('.mdx') || !file.includes(POSTS_DIR)) return
       const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_ID)
       if (mod) server.moduleGraph.invalidateModule(mod)
@@ -263,6 +296,24 @@ export function blogStatic(options: Options = {}): Plugin {
         }),
         imageAlt: `${SITE_CONFIG.name} blog`,
       })
+
+      const apiTools = available.filter((t) => t.api).length
+      page(`${API_PAGE.path.slice(1)}.html`, {
+        title: `${API_PAGE.title} — ${SITE_CONFIG.name}`,
+        description: API_PAGE.description,
+        url: `${siteUrl}${API_PAGE.path}`,
+        type: 'website',
+        image: await og('api', {
+          eyebrow: 'For developers',
+          title: API_PAGE.title,
+          description: API_PAGE.description,
+          monogram: API_PAGE.monogram,
+          accent: API_PAGE.accent,
+          footer: [`${apiTools} endpoints`, 'OpenAPI 3.1', 'No API key'],
+        }),
+        imageAlt: `${SITE_CONFIG.name} ${API_PAGE.title}: endpoints and OpenAPI document`,
+      })
+      writeFile(join(outDir, OPENAPI_PATH.slice(1)), openApiFor(config.root, apiBaseUrl))
 
       const mcpTools = available.filter((t) => t.mcp).length
       page(`${MCP_PAGE.path.slice(1)}.html`, {

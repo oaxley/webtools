@@ -10,3 +10,8 @@ interface ImportMetaEnv {
   /** Public origin of the API / MCP Worker. Defaults to the site origin. */
   readonly VITE_API_BASE_URL?: string
 }
+
+declare module 'virtual:api-reference' {
+  /** The `/api` endpoint reference, built from the OpenAPI document. */
+  export const API_REFERENCE: import('../content/apiReferenceTypes').ApiReference
+}

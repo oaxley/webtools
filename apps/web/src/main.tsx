@@ -10,6 +10,7 @@ import EncodingTool from './pages/EncodingTool.tsx'
 import HashGenerator from './pages/HashGenerator.tsx'
 import IpCalculator from './pages/IpCalculator.tsx'
 import JwtDecoder from './pages/JwtDecoder.tsx'
+import ApiPageRoute from './pages/ApiPageRoute.tsx'
 import McpPage from './pages/McpPage.tsx'
 import NanoIdGenerator from './pages/NanoIdGenerator.tsx'
 import PasswordGeneratorRoute from './pages/PasswordGeneratorRoute.tsx'
@@ -39,6 +40,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="hash" element={<HashGenerator />} />
           <Route path="blog" element={<BlogIndex />} />
           <Route path="blog/:slug" element={<BlogPost />} />
+          <Route path="api" element={<ApiPageRoute />} />
           <Route path="mcp" element={<McpPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>

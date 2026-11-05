@@ -6,7 +6,12 @@ HTTP wrapper around pure helpers in `@webtools/core`; routing lives in
 
 ## HTTP endpoints
 
-All versioned under `/api/v1`:
+All versioned under `/api/v1`, and described by a hand-written OpenAPI 3.1
+document, `src/openapi.yaml`, served at `GET /api/v1/openapi.yaml` (with
+`servers` set to the requesting origin, and CORS open).
+`test/openapi-route.spec.ts` replays its examples against the real handlers;
+`pnpm run lint:openapi` validates it against the OAS 3.1 schema. Update it
+with any route change.
 
 | Endpoint | Purpose |
 |----------|---------|

@@ -1,0 +1,1335 @@
+# =============================================================================
+# WebTools REST API — OpenAPI 3.1 description.
+#
+# HAND-WRITTEN, and deliberately so: the routes stay plain Hono handlers
+# (`src/routes/<tool>.ts`) with no schema decorators, and this file is the
+# single description of their HTTP surface. YAML rather than JSON so each
+# parameter can carry a comment explaining the accepted values.
+#
+# Kept honest by `test/openapi-route.spec.ts`, which checks that every
+# mounted route appears here (and vice versa) and replays every example in
+# this file against the real handlers, validating the responses against the
+# schemas below. Change a route, and that spec fails until this file follows.
+#
+# Examples are paired by name: a request example (body or query parameter)
+# called `foo` produces the response example called `foo`. The test sends
+# each request and compares the reply to its pair, exactly, unless the pair
+# is marked `x-varies: true` (generated values, which only have to match the
+# schema) or `x-abridged: true` (shortened for reading). The `/api` page
+# uses the same pairing to show each request next to its response.
+#
+# Served, with `@@API_BASE@@` replaced by the origin that answered the
+# request, from `GET /api/v1/openapi.yaml` (`src/routes/openapi.ts`). The
+# website copies it to `/openapi.yaml` at build time.
+# =============================================================================
+
+openapi: 3.1.0
+
+info:
+  title: WebTools API
+  version: 1.0.0
+  summary: Subnet maths, token and certificate decoding, identifiers, encodings, hashes and passwords.
+  description: |
+    The same code that runs the WebTools web pages and its MCP server, over
+    plain HTTPS. No API key, no sign-up, no
+    rate-limit headers to parse.
+
+    ### Conventions
+
+    - Every response is JSON. Errors are `{ "error": "<message>" }`, with the
+      message meant to be shown to a human as-is.
+    - Endpoints that take non-sensitive settings use `GET` with query
+      parameters. Endpoints that take a payload (a token, a certificate, data
+      to hash or encode) use `POST`, so the payload never lands in a URL,
+      an access log or a `Referer` header.
+    - `POST` bodies are accepted as `application/json`,
+      `application/x-www-form-urlencoded` or `multipart/form-data`. The field
+      names are the same in all three.
+    - Responses that contain generated secrets or submitted payloads are sent
+      with `Cache-Control: no-store`.
+    - Nothing you send is stored or logged, and decoders never echo their
+      input back.
+
+    ### Versioning
+
+    The version is in the path (`/api/v1`). Within a version, fields may be
+    added but existing ones keep their name and meaning.
+  license:
+    name: ISC
+
+servers:
+  # Replaced by the serving origin, so the copy you download is already
+  # pointed at the host you fetched it from.
+  - url: "@@API_BASE@@"
+    description: This API
+
+tags:
+  - name: Network
+    description: Subnets and addressing.
+  - name: Security
+    description: Tokens, certificates, hashes and secrets.
+  - name: Identifiers
+    description: Unique IDs for databases and URLs.
+  - name: Data
+    description: Encode, decode and convert payloads.
+  - name: Meta
+    description: The API's own description.
+
+paths:
+  # ---------------------------------------------------------------------------
+  # Network
+  # ---------------------------------------------------------------------------
+  /api/v1/ip:
+    get:
+      operationId: calculateCidr
+      tags: [Network]
+      summary: Subnet maths for an IPv4 CIDR
+      description: |
+        Network and broadcast addresses, mask, usable host range and address
+        counts for an IPv4 CIDR block, plus whether the block is publicly
+        routable.
+
+        A `/31` is treated as a point-to-point link
+        ([RFC 3021](https://datatracker.ietf.org/doc/html/rfc3021)): both
+        addresses are usable. A `/32` is a single host.
+      parameters:
+        - name: cidr
+          in: query
+          required: true
+          description: IPv4 network in `<address>/<prefix>` form. The prefix is 0–32, and the address may be any address inside the block.
+          schema:
+            type: string
+            pattern: '^\d{1,3}(\.\d{1,3}){3}/\d{1,2}$'
+            examples: ["10.20.0.0/22", "192.168.1.57/24", "203.0.113.0/31"]
+          examples:
+            private: { value: 10.20.0.0/22 }
+      responses:
+        "200":
+          description: The block's addressing.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CidrResult" }
+              examples:
+                private:
+                  summary: A private /22
+                  value:
+                    network: 10.20.0.0
+                    broadcast: 10.20.3.255
+                    prefix: 22
+                    subnetMask: 255.255.252.0
+                    firstHost: 10.20.0.1
+                    lastHost: 10.20.3.254
+                    totalAddresses: 1024
+                    usableHosts: 1022
+                    routable: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ---------------------------------------------------------------------------
+  # Security
+  # ---------------------------------------------------------------------------
+  /api/v1/jwt:
+    post:
+      operationId: decodeJwt
+      tags: [Security]
+      summary: Decode a JWT and read its time claims
+      description: |
+        Splits a compact JWT, decodes its header and payload, and adds an
+        `analysis` block with the expiry state and human-readable UTC dates
+        for the time claims it recognises (`exp`, `nbf`, `iat`, `auth_time`).
+        Raw numeric values stay untouched in `payload`.
+
+        **The signature is not verified.** Decoding a token tells you what it
+        claims, not whether those claims can be trusted. The token is not
+        echoed back in the response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JwtRequest" }
+            examples:
+              token:
+                summary: The jwt.io sample token
+                value:
+                  data: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/JwtRequest" }
+      responses:
+        "200":
+          description: The decoded token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JwtSummary" }
+              examples:
+                token:
+                  summary: A token without `exp`
+                  value:
+                    header: { alg: HS256, typ: JWT }
+                    payload: { sub: "1234567890", name: John Doe, iat: 1516239022 }
+                    signature: SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+                    analysis:
+                      state: no_expiry
+                      message: Token has no 'exp' claim; this decoder cannot determine expiration.
+                      iat: Thursday, 18 January 2018 at 01:30:22 UTC
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/x509:
+    post:
+      operationId: decodeX509
+      tags: [Security]
+      summary: Decode an X.509 certificate
+      description: |
+        Parses a PEM or raw base64 DER certificate: subject and issuer DNs,
+        validity window, public key, every extension it knows (SAN, key usage,
+        basic constraints, CRL and OCSP pointers…), the signature bytes and
+        SHA-1 / SHA-256 fingerprints of the DER encoding. The `analysis` block
+        says whether the certificate is `pending`, `active` or `expired`.
+
+        **Neither the signature nor the chain is verified**, and the submitted
+        certificate is not echoed back.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/X509Request" }
+            examples:
+              pem:
+                summary: A self-signed root CA (PEM)
+                value:
+                  data: |
+                    -----BEGIN CERTIFICATE-----
+                    MIIDZjCCAk6gAwIBAgIUTE5mt0u+Qjf6TpCJsuSiAMUlKGwwDQYJKoZIhvcNAQEL
+                    BQAwOTEYMBYGA1UEAwwPRXhhbXBsZSBSb290IENBMRAwDgYDVQQKDAdFeGFtcGxl
+                    MQswCQYDVQQGEwJVUzAeFw0yNjEwMTExODI4NDVaFw0zNjEwMDgxODI4NDVaMDkx
+                    GDAWBgNVBAMMD0V4YW1wbGUgUm9vdCBDQTEQMA4GA1UECgwHRXhhbXBsZTELMAkG
+                    A1UEBhMCVVMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDNTFDVi0+u
+                    3uH//qpS+4UbblPxnnuADBt7WJoxsHPK9le9Iu1dSYuQ8Nn+awo+Oe3JkvAPfBQs
+                    Uxf4G6PADjx0wIspLW45ST+n7Td+Vk194oDOLMygZpVNXQg9cbXxDLUdXBJJQvCx
+                    5ReS1HJANGw5S3d+3QeEJtzLKaxi8ceKIsDoahgdEBC+/IAnlgrZ+XQePOtGzhyH
+                    CU2Kv1sO99OSyklFMCkFLW89Lf1X0maS4FWRAQC9fCP7vrYIF/yJ5CgSYZqeKF33
+                    s25nVv/W8wfg2qFmhf6GRsCc0FTLMi21YXKjYjq7GQZxxgsdJYaBm2ywQCBh4iM3
+                    RO2hQh7hnBv3AgMBAAGjZjBkMB0GA1UdDgQWBBTJBqbOWs5Si0h9OcX175yX9YD5
+                    kjAfBgNVHSMEGDAWgBTJBqbOWs5Si0h9OcX175yX9YD5kjASBgNVHRMBAf8ECDAG
+                    AQH/AgEBMA4GA1UdDwEB/wQEAwIBBjANBgkqhkiG9w0BAQsFAAOCAQEAWqDq7Ekd
+                    PeTbT6M45sjjjczYcayuAt+FFLSIeYNwx9g3UTCb0Rm2BTzzrvqnCtvt5fEaFBIr
+                    ylSSqlT62RpzQc/EbnzQ6tKPBM4IlEYSnCiM4kseMd6CiE9Cdo54I2UERW6K+t9S
+                    fPG8ouE/3/o8GtrMDI3URpkywc7N/Miq84czLY6/5qwWucSKxUGUhkcpcMVBAnvj
+                    +lFUXuemCC7pa1o8yNeMVOw9ZxEVzrZ1hSkceDSx7qDngBLUlog+PJOUgbPgAu1y
+                    LtGFRY6qnWPCEeYJHDfgw9JIjr9tgQiAS2rgoVCqcLZjX49s8Zqqx+MRBWeSM4NX
+                    YevL+/+GhWB+6A==
+                    -----END CERTIFICATE-----
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/X509Request" }
+      responses:
+        "200":
+          description: The decoded certificate.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/X509Response" }
+              examples:
+                pem:
+                  summary: The root CA above (abridged)
+                  x-abridged: true
+                  value:
+                    certificate:
+                      version: 3
+                      serialNumber: 4c:4e:66:b7:4b:be:42:37:fa:4e:90:89:b2:e4:a2:00:c5:25:28:6c
+                      signatureAlgorithm: sha256WithRSAEncryption
+                      signatureAlgorithmOid: 1.2.840.113549.1.1.11
+                      issuer: CN=Example Root CA, O=Example, C=US
+                      validity:
+                        notBefore: "2026-10-11T18:28:45.000Z"
+                        notAfter: "2036-10-08T18:28:45.000Z"
+                      subject: CN=Example Root CA, O=Example, C=US
+                      subjectPublicKey:
+                        algorithm: RSA
+                        algorithmOid: 1.2.840.113549.1.1.1
+                        sizeBits: 2048
+                    extensions:
+                      "ext:basicConstraints":
+                        oid: 2.5.29.19
+                        critical: true
+                        ca: true
+                        pathLenConstraint: 1
+                      "ext:keyUsage":
+                        oid: 2.5.29.15
+                        critical: true
+                        usages: [keyCertSign, cRLSign]
+                    signatureValue: 5a:a0:ea:ec:49:1d:3d:e4:…
+                    fingerprints:
+                      sha1: 59:3a:7b:4f:c2:8e:44:29:20:25:08:b1:bc:99:6c:c5:77:d6:2c:8c
+                      sha256: 66:d5:57:17:ec:a0:52:70:3a:9c:d9:d8:ad:39:36:13:88:c4:e9:34:65:c8:03:e5:8e:75:66:d1:0e:f7:e4:2f
+                    analysis:
+                      state: active
+                      message: Certificate is valid for another 9 years, 11 months, …
+                      notBefore: Sunday, 11 October 2026 at 18:28:45 UTC
+                      notAfter: Wednesday, 8 October 2036 at 18:28:45 UTC
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/hash:
+    post:
+      operationId: computeHash
+      tags: [Security]
+      summary: Hash or HMAC a payload
+      description: |
+        MD5, SHA-1, SHA-2, SHA-3 or CRC-32 of the input, or an HMAC when
+        `hmacKey` is given. `algorithm: all` returns every algorithm at once,
+        which is how you identify an unknown digest: hash the input and look
+        for the digest you already have.
+
+        Input is capped at 64 KiB (65,536 bytes) and the request body at
+        256 KiB; both are plenty for files' worth of text and keep a single
+        request inside the Worker CPU budget. Responses are `no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HashRequest" }
+            examples:
+              sha256:
+                summary: SHA-256 of a short string
+                value: { data: hello }
+              everything:
+                summary: Every algorithm at once
+                value: { data: hello, algorithm: all }
+              webhook:
+                summary: HMAC-SHA256 of a webhook body
+                value: { data: '{"event":"ping"}', hmacKey: whsec_test }
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/HashRequest" }
+      responses:
+        "200":
+          description: The digest, or every digest when `algorithm` is `all`.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/HashResult"
+                  - $ref: "#/components/schemas/AllHashesResult"
+              examples:
+                sha256:
+                  summary: SHA-256 of a short string
+                  value:
+                    algorithm: sha256
+                    hmac: false
+                    digest: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+                    format: hex
+                    bits: 256
+                    inputBytes: 5
+                everything:
+                  summary: "Every algorithm at once (abridged)"
+                  x-abridged: true
+                  value:
+                    hmac: false
+                    format: hex
+                    inputBytes: 5
+                    hashes:
+                      - { algorithm: md5, digest: 5d41402abc4b2a76b9719d911017c592, bits: 128 }
+                      - { algorithm: sha1, digest: aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d, bits: 160 }
+                      - { algorithm: sha256, digest: 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824, bits: 256 }
+                      - { algorithm: crc32, digest: 3610a686, bits: 32 }
+                webhook:
+                  summary: HMAC-SHA256 of a webhook body
+                  value:
+                    algorithm: sha256
+                    hmac: true
+                    digest: 645e86a36ef1ed458be359c7d3c57737f8a202a88274a809a507f208ba54d991
+                    format: hex
+                    bits: 256
+                    inputBytes: 16
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/password:
+    get:
+      operationId: generatePassword
+      tags: [Security]
+      summary: Generate passwords or passphrases
+      description: |
+        Random character passwords, or [EFF large
+        wordlist](https://www.eff.org/dice) passphrases, drawn from the
+        platform CSPRNG with rejection sampling so every character or word is
+        uniformly likely. `entropyBits` is exact, not estimated.
+
+        `GET` is safe here: the request carries settings only, never a
+        password. Responses are `no-store` so no cache ever replays a password
+        issued to someone else.
+
+        There is deliberately **no endpoint to check a password's strength**:
+        sending a password you actually use to a server is the habit a strength
+        meter should discourage. The web page scores typed passwords in the
+        browser instead.
+      parameters:
+        - name: mode
+          in: query
+          description: "`random` for characters, `passphrase` for words. The parameters of the other mode are ignored."
+          schema:
+            type: string
+            enum: [random, passphrase]
+            default: random
+          examples:
+            passphrase: { value: passphrase }
+        - name: count
+          in: query
+          description: How many passwords to return.
+          schema: { type: integer, minimum: 1, maximum: 20, default: 1 }
+        # --- random mode -----------------------------------------------------
+        - name: length
+          in: query
+          description: "`random` mode: number of characters."
+          schema: { type: integer, minimum: 4, maximum: 128, default: 20 }
+        - name: sets
+          in: query
+          description: |
+            `random` mode: comma-separated character sets to draw from. Any
+            subset of `lower` (a–z), `upper` (A–Z), `digits` (0–9) and
+            `symbols` (the 32 printable ASCII symbols). Order and duplicates
+            do not matter. Defaults to all four.
+          schema:
+            type: string
+            pattern: '^(lower|upper|digits|symbols)(,(lower|upper|digits|symbols))*$'
+            examples: ["lower,upper,digits", "lower,digits"]
+        - name: excludeAmbiguous
+          in: query
+          description: "`random` mode: drop the look-alike characters `0 O 1 l I |`."
+          schema: { type: boolean, default: false }
+        - name: requireEachSet
+          in: query
+          description: |
+            `random` mode: guarantee at least one character from every chosen
+            set. `false` lets a password be missing a set, which is what a
+            uniform draw would do. Requires `length` ≥ the number of sets.
+          schema: { type: boolean, default: true }
+        # --- passphrase mode -------------------------------------------------
+        - name: words
+          in: query
+          description: "`passphrase` mode: number of words, each drawn from 7,776 ⇒ 12.92 bits."
+          schema: { type: integer, minimum: 3, maximum: 12, default: 6 }
+        - name: separator
+          in: query
+          description: |
+            `passphrase` mode: 1 to 3 characters between words, with no
+            letters or digits, so the passphrase always splits back into the
+            words it was made from.
+          schema: { type: string, minLength: 1, maxLength: 3, default: "-", examples: ["-", ".", "--"] }
+        - name: capitalize
+          in: query
+          description: "`passphrase` mode: capitalise each word. Adds no entropy."
+          schema: { type: boolean, default: false }
+        - name: includeNumber
+          in: query
+          description: "`passphrase` mode: append one random digit to one random word."
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: The resolved settings, the exact entropy and the passwords.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordResponse" }
+              examples:
+                random:
+                  summary: Random password (defaults)
+                  x-varies: true
+                  value:
+                    mode: random
+                    length: 20
+                    sets: [lower, upper, digits, symbols]
+                    excludeAmbiguous: false
+                    requireEachSet: true
+                    entropyBits: 130.93
+                    count: 1
+                    passwords: ["E}Ibj)&RqOL@K{a4b@,q"]
+                passphrase:
+                  summary: Six-word passphrase
+                  x-varies: true
+                  value:
+                    mode: passphrase
+                    words: 6
+                    separator: "-"
+                    capitalize: false
+                    includeNumber: false
+                    entropyBits: 77.55
+                    count: 1
+                    passwords: [amid-goal-jury-plant-armored-wasabi]
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ---------------------------------------------------------------------------
+  # Identifiers
+  # ---------------------------------------------------------------------------
+  /api/v1/uuid:
+    get:
+      operationId: generateUuid
+      tags: [Identifiers]
+      summary: Generate UUIDs (v7 or v4)
+      description: |
+        [RFC 9562](https://datatracker.ietf.org/doc/html/rfc9562) UUIDs.
+        Version 7 (the default) starts with a millisecond timestamp, so IDs
+        generated in order sort in order — a far better fit for database keys
+        than v4, whose randomness scatters index writes. Use v4 when an ID
+        must leak nothing about when it was created.
+
+        Responses are `no-store` so no cache ever replays an identifier.
+      parameters:
+        - name: version
+          in: query
+          description: "`7` for time-ordered, `4` for fully random."
+          schema: { type: integer, enum: [4, 7], default: 7 }
+        - name: count
+          in: query
+          description: How many UUIDs to return.
+          schema: { type: integer, minimum: 1, maximum: 10, default: 1 }
+          examples:
+            v7: { value: 2 }
+        - name: uppercase
+          in: query
+          description: Upper-case hex digits.
+          schema: { type: boolean, default: false }
+        - name: hyphens
+          in: query
+          description: Keep the canonical `8-4-4-4-12` hyphens. `false` returns 32 bare hex characters.
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: The generated UUIDs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UuidList" }
+              examples:
+                v7:
+                  summary: Two v7 UUIDs
+                  x-varies: true
+                  value:
+                    version: 7
+                    count: 2
+                    uuids:
+                      - 01a18fc7-6b58-7137-9043-076160bce5fa
+                      - 01a18fc7-6b59-70ed-b6df-cde910e49fdb
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/v1/nanoid:
+    get:
+      operationId: generateNanoId
+      tags: [Identifiers]
+      summary: Generate NanoIDs
+      description: |
+        Compact, URL-friendly random identifiers. The default — 21 characters
+        from a 64-character alphabet — carries ~126 bits of entropy, about the
+        same as a UUID v4 in 21 characters instead of 36.
+
+        Responses are `no-store` so no cache ever replays an identifier.
+      parameters:
+        - name: count
+          in: query
+          description: How many IDs to return.
+          schema: { type: integer, minimum: 1, maximum: 10, default: 1 }
+          examples:
+            twoIds: { value: 2 }
+        - name: size
+          in: query
+          description: Characters per ID. Entropy is `size × log2(alphabet)` bits.
+          schema: { type: integer, minimum: 2, maximum: 255, default: 21 }
+        - name: alphabet
+          in: query
+          description: |
+            Which built-in alphabet to draw from:
+
+            - `url` — nanoid's default, `A–Za–z0–9_-` (64 characters)
+            - `alphanumeric` — letters and digits (62)
+            - `lowercase` — lower-case letters and digits (36)
+            - `numbers` — digits only (10)
+            - `hex` — lower-case hexadecimal (16)
+            - `nolookalikes` — letters and digits minus `0 O 1 l I` (57)
+          schema:
+            type: string
+            enum: [url, alphanumeric, lowercase, numbers, hex, nolookalikes]
+            default: url
+        - name: safeEnds
+          in: query
+          description: |
+            Keep the first and last character alphanumeric, so an ID never
+            starts or ends with `-` or `_` — handy when IDs get
+            double-clicked, auto-linked or pasted into Markdown.
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: The generated NanoIDs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NanoIdList" }
+              examples:
+                twoIds:
+                  summary: Two 21-character IDs
+                  x-varies: true
+                  value:
+                    alphabet: url
+                    size: 21
+                    safeEnds: false
+                    count: 2
+                    ids: [P0iIMMDo5TWPsCeeVOuW6, H8jyTQ_7Xl0xsXyk_lVNo]
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/v1/ulid:
+    get:
+      operationId: generateUlid
+      tags: [Identifiers]
+      summary: Generate ULIDs
+      description: |
+        26-character Crockford Base32 identifiers: 48 bits of millisecond
+        timestamp followed by 80 random bits. Lexicographic order matches
+        creation order, and the whole ID is case-insensitive and free of
+        look-alike characters.
+
+        Responses are `no-store` so no cache ever replays an identifier.
+      parameters:
+        - name: count
+          in: query
+          description: How many ULIDs to return.
+          schema: { type: integer, minimum: 1, maximum: 10, default: 1 }
+          examples:
+            monotonic: { value: 2 }
+        - name: monotonic
+          in: query
+          description: |
+            Within one millisecond, increment the random part instead of
+            drawing fresh randomness, so a batch is strictly increasing.
+            `false` gives each ID independent randomness, and IDs from the
+            same millisecond then sort arbitrarily among themselves.
+          schema: { type: boolean, default: true }
+        - name: lowercase
+          in: query
+          description: Lower-case output. ULIDs are case-insensitive, so this is cosmetic.
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: The generated ULIDs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UlidList" }
+              examples:
+                monotonic:
+                  summary: Two ULIDs from the same millisecond
+                  x-varies: true
+                  value:
+                    monotonic: true
+                    lowercase: false
+                    count: 2
+                    ulids: [01M67WEVDEVEW3M26AF5BMENK0, 01M67WEVDEVEW3M26AF5BMENK1]
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  # ---------------------------------------------------------------------------
+  # Data — one path per encoding, same request and response shapes.
+  # ---------------------------------------------------------------------------
+  /api/v1/base64:
+    post:
+      operationId: convertBase64
+      tags: [Data]
+      summary: Encode or decode Base64
+      description: |
+        Standard ([RFC 4648 §4](https://datatracker.ietf.org/doc/html/rfc4648#section-4))
+        or URL-safe (`-_`, §5) Base64, with or without `=` padding. Decoding
+        accepts either alphabet, ignores whitespace and tolerates missing
+        padding.
+
+        Input is capped at 256 KiB (262,144 bytes) and the body at 1 MiB.
+        Responses are `no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Base64Request" }
+            examples:
+              encode:
+                summary: Encode text
+                value: { data: "Hello, world!" }
+              decode:
+                summary: Decode back
+                value: { data: SGVsbG8sIHdvcmxkIQ==, operation: decode }
+              urlSafe:
+                summary: URL-safe, unpadded
+                value: { data: "Hello, world!", urlSafe: true, padding: false }
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/Base64Request" }
+      responses:
+        "200":
+          description: |
+            The result. Encoding returns `output` and the size of the input
+            in bytes; decoding returns the bytes as `text` and `hex`, with
+            `text: null` when they are not valid UTF-8.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversionResult" }
+              examples:
+                encode:
+                  summary: Encode text
+                  value: { encoding: base64, operation: encode, output: SGVsbG8sIHdvcmxkIQ==, inputBytes: 13 }
+                decode:
+                  summary: Decode back
+                  value: { encoding: base64, operation: decode, text: "Hello, world!", hex: 48656c6c6f2c20776f726c6421, bytes: 13 }
+                urlSafe:
+                  summary: URL-safe, unpadded
+                  value: { encoding: base64, operation: encode, output: SGVsbG8sIHdvcmxkIQ, inputBytes: 13 }
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/base32:
+    post:
+      operationId: convertBase32
+      tags: [Data]
+      summary: Encode or decode Base32
+      description: |
+        [RFC 4648 §6](https://datatracker.ietf.org/doc/html/rfc4648#section-6)
+        Base32 (`A–Z2–7`, the alphabet TOTP secrets use) or [Crockford
+        Base32](https://www.crockford.com/base32.html), which drops the
+        look-alike letters `I L O U` and never pads. Decoding is
+        case-insensitive.
+
+        Input is capped at 256 KiB (262,144 bytes) and the body at 1 MiB.
+        Responses are `no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Base32Request" }
+            examples:
+              encode:
+                summary: Encode text
+                value: { data: Hello }
+              crockford:
+                summary: Crockford alphabet
+                value: { data: Hello, variant: crockford }
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/Base32Request" }
+      responses:
+        "200":
+          description: |
+            The result. Encoding returns `output` and the size of the input
+            in bytes; decoding returns the bytes as `text` and `hex`, with
+            `text: null` when they are not valid UTF-8.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversionResult" }
+              examples:
+                encode:
+                  summary: Encode text
+                  value: { encoding: base32, operation: encode, output: JBSWY3DP, inputBytes: 5 }
+                crockford:
+                  summary: Crockford alphabet
+                  value: { encoding: base32, operation: encode, output: 91JPRV3F, inputBytes: 5 }
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  /api/v1/base58:
+    post:
+      operationId: convertBase58
+      tags: [Data]
+      summary: Encode or decode Base58
+      description: |
+        Bitcoin-alphabet Base58: no `0`, `O`, `I` or `l`, no padding, and no
+        fixed block size — the whole input is one big-number conversion, which
+        is why it has no `padding` or `variant` option.
+
+        That conversion is quadratic, so input here is capped at 1 KiB (1,024
+        bytes) rather than 256 KiB, with the body capped at 1 MiB. Responses
+        are `no-store`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Base58Request" }
+            examples:
+              encode:
+                summary: Encode text
+                value: { data: Hello }
+              hexBytes:
+                summary: Encode raw bytes given as hex
+                value: { data: 00010966776006953d5567439e5e39f86a0d273bee, inputFormat: hex }
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/Base58Request" }
+      responses:
+        "200":
+          description: |
+            The result. Encoding returns `output` and the size of the input
+            in bytes; decoding returns the bytes as `text` and `hex`, with
+            `text: null` when they are not valid UTF-8.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversionResult" }
+              examples:
+                encode:
+                  summary: Encode text
+                  value: { encoding: base58, operation: encode, output: 9Ajdvzr, inputBytes: 5 }
+                hexBytes:
+                  summary: Encode raw bytes given as hex
+                  value: { encoding: base58, operation: encode, output: 1qb3y62fmEEVTPySXPQ77WXok6H, inputBytes: 21 }
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+
+  # ---------------------------------------------------------------------------
+  # Meta
+  # ---------------------------------------------------------------------------
+  /api/v1/openapi.yaml:
+    get:
+      operationId: getOpenApiDocument
+      tags: [Meta]
+      summary: This OpenAPI document
+      description: |
+        The description you are reading, with `servers` pointed at the origin
+        that served it. Import the URL into Postman, Bruno, Insomnia or any
+        other client that reads OpenAPI 3.1.
+
+        This is the only endpoint that sends CORS headers, so a browser-based
+        client can load it cross-origin.
+      responses:
+        "200":
+          description: The OpenAPI document, as YAML.
+          content:
+            application/yaml:
+              schema: { type: string }
+          headers:
+            Access-Control-Allow-Origin:
+              description: Always `*`.
+              schema: { type: string }
+            Cache-Control:
+              description: Cacheable for an hour.
+              schema: { type: string }
+
+components:
+  headers:
+    NoStore:
+      description: Always `no-store` — the response contains a generated secret or submitted data.
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: |
+        Invalid or missing parameters. The message is written for a human and
+        names the offending field, e.g. `count must be an integer between 1
+        and 10.`
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            count:
+              value: { error: count must be an integer between 1 and 10. }
+    PayloadTooLarge:
+      description: The request body is larger than the endpoint's cap.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            tooLarge:
+              value: { error: "Request body is too large (limit: 1048576 bytes)." }
+    UnsupportedMediaType:
+      description: The `Content-Type` is none of the three accepted body types.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          examples:
+            contentType:
+              value:
+                error: 'Unsupported content type. Send application/json with { "data": "<jwt>" } or form-encoded fields.'
+
+  schemas:
+    Error:
+      type: object
+      description: Every non-2xx response has this shape.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+          description: Human-readable message, safe to show as-is.
+
+    # --- Network -----------------------------------------------------------
+    CidrResult:
+      type: object
+      required:
+        [network, broadcast, prefix, subnetMask, firstHost, lastHost, totalAddresses, usableHosts, routable]
+      properties:
+        network:
+          type: string
+          description: First address of the block, with the host bits cleared.
+        broadcast:
+          type: string
+          description: Last address of the block, with the host bits set.
+        prefix:
+          type: integer
+          minimum: 0
+          maximum: 32
+          description: Prefix length, as given.
+        subnetMask:
+          type: string
+          description: The prefix in dotted-quad form, e.g. `255.255.252.0`.
+        firstHost:
+          type: [string, "null"]
+          description: First usable host. For a `/31` this is the network address, for a `/32` the address itself.
+        lastHost:
+          type: [string, "null"]
+          description: Last usable host. For a `/31` this is the broadcast address, for a `/32` the address itself.
+        totalAddresses:
+          type: integer
+          description: "`2 ^ (32 - prefix)`, including network and broadcast."
+        usableHosts:
+          type: integer
+          description: Assignable addresses — `totalAddresses - 2`, except 2 for a `/31` and 1 for a `/32`.
+        routable:
+          type: boolean
+          description: |
+            `false` when the block falls inside a reserved range (RFC 1918
+            private space, loopback, link-local, CGNAT, multicast,
+            documentation…), so it cannot be routed on the public internet.
+
+    # --- Security ----------------------------------------------------------
+    JwtRequest:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          description: The compact JWT, `header.payload.signature`.
+    JwtSummary:
+      type: object
+      required: [header, payload, signature, analysis]
+      properties:
+        header:
+          type: object
+          description: Decoded JOSE header, verbatim.
+          additionalProperties: true
+        payload:
+          type: object
+          description: Decoded claims, verbatim. Time claims stay numeric.
+          additionalProperties: true
+        signature:
+          type: string
+          description: The signature segment, still base64url. **Not verified.**
+        analysis:
+          type: object
+          description: |
+            Expiry verdict, plus one human-readable UTC date per recognised
+            time claim (`exp`, `nbf`, `iat`, `auth_time`) under that claim's
+            own name — only for claims actually present and numeric.
+          required: [state, message]
+          additionalProperties: { type: string }
+          properties:
+            state:
+              type: string
+              description: |
+                - `valid` — `exp` is in the future
+                - `expired` — `exp` is in the past
+                - `not_yet_valid` — `nbf` is in the future
+                - `no_expiry` — no `exp` claim, so expiry is unknown
+              enum: [valid, expired, not_yet_valid, no_expiry]
+            message:
+              type: string
+              description: The verdict in words, e.g. `Token will expire in 2 days.`
+
+    X509Request:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          description: PEM (`-----BEGIN CERTIFICATE-----`…) or raw base64 DER.
+    X509Response:
+      type: object
+      required: [certificate, extensions, signatureValue, fingerprints, analysis]
+      properties:
+        certificate:
+          type: object
+          required:
+            [version, serialNumber, signatureAlgorithm, signatureAlgorithmOid, issuer, validity, subject, subjectPublicKey]
+          properties:
+            version:
+              type: integer
+              description: X.509 version, 1-based (`3` for a modern certificate).
+            serialNumber:
+              type: string
+              description: Colon-separated hex.
+            signatureAlgorithm:
+              type: string
+              description: Readable name, e.g. `sha256WithRSAEncryption`.
+            signatureAlgorithmOid: { type: string }
+            issuer:
+              type: string
+              description: Issuer distinguished name, RFC 4514 form.
+            validity:
+              type: object
+              required: [notBefore, notAfter]
+              properties:
+                notBefore: { type: string, format: date-time }
+                notAfter: { type: string, format: date-time }
+            subject:
+              type: string
+              description: Subject distinguished name, RFC 4514 form.
+            subjectPublicKey:
+              type: object
+              required: [algorithm, algorithmOid]
+              properties:
+                algorithm:
+                  type: string
+                  description: e.g. `RSA`, `EC`, `Ed25519`.
+                algorithmOid: { type: string }
+                curve:
+                  type: string
+                  description: Named curve, for EC keys only.
+                sizeBits:
+                  type: integer
+                  description: Key size, when it is known.
+        extensions:
+          type: object
+          description: |
+            One entry per extension, keyed `ext:<name>` for the extensions
+            this decoder knows and `ext:<oid>` otherwise. Every entry has
+            `oid` and `critical`; the remaining fields depend on the
+            extension (`dnsNames` for a SAN, `usages` for key usage, `ca` and
+            `pathLenConstraint` for basic constraints, …).
+          additionalProperties:
+            type: object
+            required: [oid, critical]
+            properties:
+              oid: { type: string }
+              critical: { type: boolean }
+            additionalProperties: true
+        signatureValue:
+          type: string
+          description: Colon-separated hex of the signature bits.
+        fingerprints:
+          type: object
+          description: Digests of the whole DER encoding — what a browser or `openssl x509 -fingerprint` shows.
+          required: [sha256, sha1]
+          properties:
+            sha256: { type: string }
+            sha1: { type: string }
+        analysis:
+          type: object
+          required: [state, message, notBefore, notAfter]
+          properties:
+            state:
+              type: string
+              description: |
+                - `pending` — `notBefore` is in the future
+                - `active` — inside the validity window
+                - `expired` — past `notAfter`
+              enum: [pending, active, expired]
+            message:
+              type: string
+              description: The verdict in words, e.g. `Certificate expires in 29 days.`
+            notBefore:
+              type: string
+              description: "`notBefore` as a human-readable UTC date."
+            notAfter:
+              type: string
+              description: "`notAfter` as a human-readable UTC date."
+
+    HashRequest:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          description: The text, or hex bytes when `inputFormat` is `hex`. Capped at 64 KiB of bytes.
+        algorithm:
+          type: string
+          description: |
+            Which digest to compute. `all` returns every algorithm in one
+            response (and skips `crc32` when hashing with a key, since a
+            checksum cannot be used for HMAC).
+
+            `md5` and `sha1` are listed for reading old data only: both are
+            broken for signatures and passwords.
+          enum: [md5, sha1, sha224, sha256, sha384, sha512, sha3-256, sha3-512, crc32, all]
+          default: sha256
+        inputFormat:
+          type: string
+          description: How to read `data` — as UTF-8 `text`, or as `hex` bytes.
+          enum: [text, hex]
+          default: text
+        outputFormat:
+          type: string
+          description: How to write the digest.
+          enum: [hex, base64]
+          default: hex
+        uppercase:
+          type: boolean
+          description: Upper-case hex digits. Ignored when `outputFormat` is `base64`.
+          default: false
+        hmacKey:
+          type: string
+          description: |
+            Compute `HMAC(key, data)` instead of a plain digest — the
+            construction webhook signatures use. Not available with `crc32`.
+        hmacKeyFormat:
+          type: string
+          description: How to read `hmacKey`. Use `hex` for a key that is a hex string rather than a passphrase.
+          enum: [text, hex]
+          default: text
+    HashResult:
+      type: object
+      description: One algorithm.
+      required: [algorithm, hmac, digest, format, bits, inputBytes]
+      properties:
+        algorithm:
+          type: string
+          enum: [md5, sha1, sha224, sha256, sha384, sha512, sha3-256, sha3-512, crc32]
+        hmac:
+          type: boolean
+          description: "`true` when a key was given, so this is an HMAC."
+        digest: { type: string }
+        format:
+          type: string
+          enum: [hex, base64]
+        bits:
+          type: integer
+          description: Digest size in bits.
+        inputBytes:
+          type: integer
+          description: Size of the hashed input, in bytes.
+    AllHashesResult:
+      type: object
+      description: "`algorithm: all`."
+      required: [hmac, format, inputBytes, hashes]
+      properties:
+        hmac: { type: boolean }
+        format:
+          type: string
+          enum: [hex, base64]
+        inputBytes: { type: integer }
+        hashes:
+          type: array
+          description: One entry per algorithm, weakest first. Checksums are left out for HMAC.
+          items:
+            type: object
+            required: [algorithm, digest, bits]
+            properties:
+              algorithm: { type: string }
+              digest: { type: string }
+              bits: { type: integer }
+
+    PasswordResponse:
+      description: |
+        The resolved settings for the mode that ran, then the entropy and the
+        passwords. Only the chosen mode's settings are echoed, so a response
+        can be fed straight back as a request.
+      allOf:
+        - oneOf:
+            - $ref: "#/components/schemas/RandomPasswordSettings"
+            - $ref: "#/components/schemas/PassphraseSettings"
+        - type: object
+          required: [entropyBits, count, passwords]
+          properties:
+            entropyBits:
+              type: number
+              description: |
+                Exact entropy of each password, in bits, rounded to two
+                decimals. Every choice is uniform, so this is a real
+                calculation, not a strength score.
+            count: { type: integer }
+            passwords:
+              type: array
+              items: { type: string }
+    RandomPasswordSettings:
+      type: object
+      required: [mode, length, sets, excludeAmbiguous, requireEachSet]
+      properties:
+        mode: { const: random }
+        length: { type: integer }
+        sets:
+          type: array
+          description: The sets actually used, in canonical order, deduplicated.
+          items:
+            type: string
+            enum: [lower, upper, digits, symbols]
+        excludeAmbiguous: { type: boolean }
+        requireEachSet: { type: boolean }
+    PassphraseSettings:
+      type: object
+      required: [mode, words, separator, capitalize, includeNumber]
+      properties:
+        mode: { const: passphrase }
+        words: { type: integer }
+        separator: { type: string }
+        capitalize: { type: boolean }
+        includeNumber: { type: boolean }
+
+    # --- Identifiers -------------------------------------------------------
+    UuidList:
+      type: object
+      required: [version, count, uuids]
+      properties:
+        version:
+          type: integer
+          enum: [4, 7]
+        count: { type: integer }
+        uuids:
+          type: array
+          items: { type: string }
+    NanoIdList:
+      type: object
+      required: [alphabet, size, safeEnds, count, ids]
+      properties:
+        alphabet:
+          type: string
+          enum: [url, alphanumeric, lowercase, numbers, hex, nolookalikes]
+        size: { type: integer }
+        safeEnds: { type: boolean }
+        count: { type: integer }
+        ids:
+          type: array
+          items: { type: string }
+    UlidList:
+      type: object
+      required: [monotonic, lowercase, count, ulids]
+      properties:
+        monotonic: { type: boolean }
+        lowercase: { type: boolean }
+        count: { type: integer }
+        ulids:
+          type: array
+          items: { type: string }
+
+    # --- Data --------------------------------------------------------------
+    # The three encodings share `data`, `operation` and `inputFormat`; each
+    # request schema adds only the options that encoding actually supports,
+    # so an unsupported option is visible as such in a generated client.
+    ConversionRequest:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: string
+          description: |
+            Encoding: the text (or hex bytes, see `inputFormat`) to encode.
+            Decoding: the encoded string. Whitespace is ignored.
+        operation:
+          type: string
+          description: Which direction to convert in.
+          enum: [encode, decode]
+          default: encode
+        inputFormat:
+          type: string
+          description: |
+            Encoding only: read `data` as UTF-8 `text` or as `hex` bytes. Use
+            `hex` to encode binary that has no text form, such as a key.
+          enum: [text, hex]
+          default: text
+    Base64Request:
+      allOf:
+        - $ref: "#/components/schemas/ConversionRequest"
+        - type: object
+          properties:
+            urlSafe:
+              type: boolean
+              description: |
+                Encoding only: use the URL-safe alphabet, `-` and `_` instead
+                of `+` and `/`, so the result is safe in URLs and file names.
+                Decoding accepts either alphabet regardless.
+              default: false
+            padding:
+              type: boolean
+              description: "Encoding only: emit `=` so the length is a multiple of 4."
+              default: true
+    Base32Request:
+      allOf:
+        - $ref: "#/components/schemas/ConversionRequest"
+        - type: object
+          properties:
+            variant:
+              type: string
+              description: |
+                - `rfc4648` — `A–Z2–7`, the alphabet TOTP secrets use
+                - `crockford` — drops `I L O U`, accepts them as their
+                  look-alikes when decoding, and never pads
+              enum: [rfc4648, crockford]
+              default: rfc4648
+            padding:
+              type: boolean
+              description: "Encoding only: emit `=` so the length is a multiple of 8. Ignored for `crockford`, which has no padding."
+              default: true
+    Base58Request:
+      allOf:
+        - $ref: "#/components/schemas/ConversionRequest"
+    ConversionResult:
+      oneOf:
+        - $ref: "#/components/schemas/EncodeResult"
+        - $ref: "#/components/schemas/DecodeResult"
+    EncodeResult:
+      type: object
+      required: [encoding, operation, output, inputBytes]
+      properties:
+        encoding:
+          type: string
+          enum: [base64, base32, base58]
+        operation: { const: encode }
+        output:
+          type: string
+          description: The encoded string.
+        inputBytes:
+          type: integer
+          description: Size of the input, in bytes — before encoding, so unaffected by the alphabet.
+    DecodeResult:
+      type: object
+      required: [encoding, operation, text, hex, bytes]
+      properties:
+        encoding:
+          type: string
+          enum: [base64, base32, base58]
+        operation: { const: decode }
+        text:
+          type: [string, "null"]
+          description: The decoded bytes as UTF-8 text, or `null` when they are not valid UTF-8 — in which case read `hex`.
+        hex:
+          type: string
+          description: The decoded bytes as lower-case hex.
+        bytes:
+          type: integer
+          description: Number of decoded bytes.
