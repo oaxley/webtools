@@ -25,6 +25,11 @@ export interface Tool {
   api?: { method: 'GET' | 'POST'; path: string };
   /** Matching MCP tool name, if any. */
   mcp?: string;
+  /**
+   * The page needs the API to work (it can't run offline in the browser),
+   * e.g. "What's my IP", which only a server can see.
+   */
+  needsServer?: boolean;
 }
 
 export interface NavItem {
@@ -53,6 +58,19 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'GET', path: '/api/v1/ip' },
     mcp: 'calculate_cidr',
+  },
+  {
+    id: 'myip',
+    category: 'network',
+    name: "What's My IP",
+    description: 'Your public IPv4 address, with its approximate location and ISP.',
+    tags: ['ip', 'my ip', 'what is my ip', 'public ip', 'ipv4', 'isp', 'asn', 'geolocation'],
+    path: '/my-ip',
+    monogram: 'ME',
+    accent: '#0284c7',
+    available: true,
+    api: { method: 'GET', path: '/api/v1/myip' },
+    needsServer: true,
   },
   {
     id: 'jwt',

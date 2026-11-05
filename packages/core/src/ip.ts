@@ -83,6 +83,19 @@ export function calculateCIDR(cidr: string): CidrResult {
     };
 }
 
+/**
+ * True for a dotted-quad IPv4 address (`203.0.113.7`): four decimal
+ * octets 0–255, no prefix, no leading `+`/spaces. Leading zeros are
+ * accepted, like {@link calculateCIDR}.
+ */
+export function isIPv4(address: string): boolean {
+    const octets = address.split(".");
+    return (
+        octets.length === 4 &&
+        octets.every((o) => /^\d{1,3}$/.test(o) && Number(o) <= 255)
+    );
+}
+
 /** IPv4 blocks that are not publicly routable: [network, prefix]. */
 const NON_ROUTABLE_BLOCKS: Array<[number, number]> = [
     [0x00_00_00_00, 8], // "This network" (0.0.0.0/8)

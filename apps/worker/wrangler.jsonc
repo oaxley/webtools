@@ -19,7 +19,7 @@
 	},
 	"upload_source_maps": true,
 	// Bundle `src/openapi.yaml` as a string, served by `routes/openapi.ts`.
-	"rules": [{ "type": "Text", "globs": ["**/*.yaml"], "fallthrough": true }]
+	"rules": [{ "type": "Text", "globs": ["**/*.yaml"], "fallthrough": true }],
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -37,7 +37,12 @@
 	 * Note: Use secrets to store sensitive data.
 	 * https://developers.cloudflare.com/workers/configuration/secrets/
 	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
+	"vars": {
+		// Comma-separated origins whose pages may call `/api/v1/myip` from
+		// the browser (CORS). Same-origin calls never need it. Set it to the
+		// site's origin(s) when the site and the API live on different hosts.
+		"ALLOWED_ORIGINS": "https://webtools.example.com"
+	}
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

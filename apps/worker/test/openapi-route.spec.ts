@@ -102,6 +102,12 @@ function abridgedShape(value: unknown): unknown {
 	);
 }
 
+/**
+ * Cloudflare's edge always sets the client address; the test runtime
+ * doesn't, so GETs carry one (a public IPv4) for `/myip`.
+ */
+const CLIENT = { headers: { "CF-Connecting-IP": "90.12.34.56" } };
+
 const operations = Object.entries(doc.paths).flatMap(([path, methods]) =>
 	Object.entries(methods).map(([method, op]) => ({ path, method: method.toUpperCase(), op })),
 );
@@ -110,7 +116,8 @@ const apiOperations = operations.filter((o) => o.path !== "/api/v1/openapi.yaml"
 describe("openapi.yaml", () => {
 	it("documents exactly the mounted /api/v1 routes", () => {
 		const mounted = app.routes
-			.filter((r) => r.path.startsWith("/api/v1/"))
+			// `ALL …/*` entries are middleware (e.g. CORS), not endpoints.
+			.filter((r) => r.path.startsWith("/api/v1/") && r.method !== "ALL")
 			.map((r) => `${r.method} ${r.path}`)
 			.sort();
 		const documented = operations.map((o) => `${o.method} ${o.path}`).sort();
@@ -188,7 +195,7 @@ describe("openapi.yaml", () => {
 				const ex = p.examples?.[name];
 				if (ex) q.set(p.name, String(ex.value));
 			}
-			const response = await SELF.fetch(`http://example.com${path}?${q}`);
+			const response = await SELF.fetch(`http://example.com${path}?${q}`, CLIENT);
 			expect(response.status).toBe(200);
 			expectPaired(ok, name, await response.json());
 		});
@@ -212,10 +219,13 @@ describe("openapi.yaml", () => {
 		}
 
 		it.each(variants)("?%s is accepted", async (query) => {
-			const response = await SELF.fetch(`http://example.com${path}?${query}`);
+			const response = await SELF.fetch(`http://example.com${path}?${query}`, CLIENT);
 			expect(response.status, await response.clone().text()).toBe(200);
 			expectMatches(ok.schema, await response.json(), "reply");
 		});
+
+		// Endpoints without parameters have nothing to get out of range.
+		if (params.length === 0) return;
 
 		it("is documented to answer 400 to an out-of-range value, and does", async () => {
 			const bad = params.find((p) => p.schema.maximum !== undefined) ?? required[0];

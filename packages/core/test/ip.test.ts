@@ -1,5 +1,5 @@
 /**
- * Exhaustive tests for `calculateCIDR` and `isRoutable` (../src/ip.ts).
+ * Exhaustive tests for `calculateCIDR`, `isIPv4` and `isRoutable` (../src/ip.ts).
  *
  * All core `ip.ts` tests live in this one file on purpose: when new
  * functions are added in other src files, they get their own
@@ -11,7 +11,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateCIDR, isRoutable, type CidrResult } from "../src/ip.ts";
+import { calculateCIDR, isIPv4, isRoutable, type CidrResult } from "../src/ip.ts";
 
 const IPV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 
@@ -542,6 +542,33 @@ describe("isRoutable", () => {
     it("throws on invalid CIDR input", () => {
         for (const input of ["foo", "10.0.0.0/33", "256.0.0.0/24"]) {
             assert.throws(() => isRoutable(input), Error, input);
+        }
+    });
+});
+
+describe("isIPv4", () => {
+    it("accepts dotted-quad addresses", () => {
+        for (const input of ["0.0.0.0", "127.0.0.1", "203.0.113.7", "255.255.255.255", "010.001.000.001"]) {
+            assert.strictEqual(isIPv4(input), true, input);
+        }
+    });
+
+    it("rejects IPv6, CIDRs and malformed input", () => {
+        for (const input of [
+            "",
+            "::1",
+            "2001:db8::1",
+            "::ffff:192.0.2.1",
+            "192.0.2.1/32",
+            "256.0.0.1",
+            "1.2.3",
+            "1.2.3.4.5",
+            "1.2.3.-4",
+            " 1.2.3.4",
+            "1.2.3.0004",
+            "a.b.c.d",
+        ]) {
+            assert.strictEqual(isIPv4(input), false, input);
         }
     });
 });

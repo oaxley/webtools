@@ -16,6 +16,7 @@ with any route change.
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/v1/ip?cidr=<ipv4/prefix>` | IP subnet calculator — returns network, broadcast, mask, host range, and routable flag. |
+| `GET /api/v1/myip` | "What's my IP" — returns the caller's public IPv4 (`CF-Connecting-IP`) with an **approximate** `location` (city, region, country, timezone, lat/long) and `isp` (`asn`, `organization`), all from `request.cf`. Any field may be `null`. IPv6 clients get a `422`. `Cache-Control: no-store`. CORS is limited to the origins in `ALLOWED_ORIGINS` (see below). |
 | `GET /api/v1/jwt?...` | JWT decoder / inspector. |
 | `GET /api/v1/x509?...` | X.509 certificate decoder. |
 | `GET /api/v1/uuid?version=4\|7&count=1..10&uppercase=true&hyphens=false` | UUID generator — returns `{ version, count, uuids }`. Defaults to one v7 UUID; at most 10 per batch. Responses are `Cache-Control: no-store`. |
@@ -77,6 +78,31 @@ curl -sS http://127.0.0.1:8787/mcp \
     "params":{"name":"calculate_cidr","arguments":{"cidr":"192.168.1.0/24"}}
   }'
 ```
+
+## CORS and `ALLOWED_ORIGINS`
+
+`/api/v1/myip` is the only endpoint the website calls from the browser.
+If the site and the Worker share an origin, nothing is needed. If they
+live on different hosts, the site's origin must be listed in the
+`ALLOWED_ORIGINS` var (comma-separated, in `wrangler.jsonc`): only those
+origins get `Access-Control-Allow-Origin` back, and browsers block every
+other site from reading the answer. (CORS only binds browsers: `curl`
+still works, which is fine for an endpoint that returns the caller's own
+IP.)
+
+Locally, just run `pnpm dev:worker` and `pnpm dev:web`: the Vite dev
+server proxies `/api/v1/*` to `wrangler dev` (`http://127.0.0.1:8787`, or
+`VITE_WORKER_URL`), so the site and the API share an origin and no CORS
+is involved, from this machine or another device on the LAN. The proxy
+passes the browser's address as `CF-Connecting-IP`, so `/my-ip` shows
+`127.0.0.1` or your LAN address, with the location and ISP of your
+machine's internet connection: Wrangler looks them up once at start-up and
+caches them in `node_modules/.mf/cf.json` (git-ignored, never committed).
+
+Only if you point the site straight at the Worker
+(`VITE_API_BASE_URL=http://127.0.0.1:8787 pnpm dev:web`) do the two become
+separate origins: then copy `.dev.vars.example` to `.dev.vars` so
+`localhost:5173` is allowed.
 
 ## Dev / deploy
 

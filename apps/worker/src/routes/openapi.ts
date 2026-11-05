@@ -8,7 +8,7 @@
  * downloaded copy already points at the right host — production, a
  * preview deployment or `wrangler dev`.
  *
- * The only route with CORS: the document is public and harmless, and
+ * CORS is open (`*`): the document is public and harmless, and
  * browser-based clients need it to load the spec from another origin.
  */
 import { Hono } from "hono";

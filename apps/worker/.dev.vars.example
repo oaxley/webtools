@@ -1,0 +1,8 @@
+# Copy to `.dev.vars` (git-ignored) for `wrangler dev`. Values here
+# override `vars` from wrangler.jsonc locally.
+
+# Not needed with the default setup: `pnpm dev:web` proxies /api/v1/* to
+# this Worker, so the site and the API share an origin (no CORS).
+# Only needed if you run the site against the Worker directly, i.e.
+# VITE_API_BASE_URL=http://127.0.0.1:8787 pnpm dev:web
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173

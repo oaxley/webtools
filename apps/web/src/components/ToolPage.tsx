@@ -43,7 +43,7 @@ function ToolHeader({ tool, lede }: { tool: Tool; lede: ReactNode }) {
         <ul className="tool-hero-chips" aria-label="Also available">
           <li>
             <span className="tool-chip-dot" aria-hidden="true" />
-            Runs in your browser
+            {tool.needsServer ? 'Answered by our server, nothing stored' : 'Runs in your browser'}
           </li>
           {tool.api && (
             <li>

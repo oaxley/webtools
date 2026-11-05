@@ -54,7 +54,7 @@ export type {
     HashResult,
 } from "./hash";
 
-export { calculateCIDR, isRoutable } from "./ip";
+export { calculateCIDR, isIPv4, isRoutable } from "./ip";
 export type { CidrResult } from "./ip";
 
 export {

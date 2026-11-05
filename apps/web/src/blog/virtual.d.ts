@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SITE_URL?: string
   /** Public origin of the API / MCP Worker. Defaults to the site origin. */
   readonly VITE_API_BASE_URL?: string
+  /** Dev only: where `wrangler dev` listens, for the Vite proxy. Default http://127.0.0.1:8787 */
+  readonly VITE_WORKER_URL?: string
 }
 
 declare module 'virtual:api-reference' {

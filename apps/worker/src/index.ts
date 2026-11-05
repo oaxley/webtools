@@ -12,6 +12,7 @@ import hash from "./routes/hash";
 import ip from "./routes/ip";
 import jwt from "./routes/jwt";
 import mcp from "./routes/mcp";
+import myip from "./routes/myip";
 import nanoid from "./routes/nanoid";
 import openapi from "./routes/openapi";
 import password from "./routes/password";
@@ -25,6 +26,7 @@ const app = new Hono();
 // `app.route("/api/v2/ip", ipV2)` here — the sub-routers themselves
 // stay version-agnostic.
 app.route("/api/v1/ip", ip);
+app.route("/api/v1/myip", myip);
 app.route("/api/v1/jwt", jwt);
 app.route("/api/v1/x509", x509);
 app.route("/api/v1/uuid", uuid);

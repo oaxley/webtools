@@ -28,7 +28,7 @@ openapi: 3.1.0
 info:
   title: WebTools API
   version: 1.0.0
-  summary: Subnet maths, token and certificate decoding, identifiers, encodings, hashes and passwords.
+  summary: Your IP, subnet maths, token and certificate decoding, identifiers, encodings, hashes and passwords.
   description: |
     The same code that runs the WebTools web pages and its MCP server, over
     plain HTTPS. No API key, no sign-up, no
@@ -124,6 +124,75 @@ paths:
                     routable: false
         "400":
           $ref: "#/components/responses/BadRequest"
+
+  /api/v1/myip:
+    get:
+      operationId: getMyIp
+      tags: [Network]
+      summary: Your public IPv4 address, location and ISP
+      description: |
+        "What's my IP": the public IPv4 address this request came from, as
+        seen by the server, with the network (ISP) it belongs to and the
+        location Cloudflare's edge associates with it.
+
+        The location is **approximate**: it comes from an IP geolocation
+        database, so it usually names your ISP's nearest hub, not your
+        street — expect the right country, often the right region, and a
+        city that may be off by tens of kilometres. Any field can be `null`
+        when the database has no answer. Nothing is stored or logged.
+
+        IPv4 only: a client connected over IPv6 gets a `422`. Responses are
+        `no-store`, since each caller gets their own answer. Browser pages
+        on another origin may only read it if that origin is in the
+        server's allowlist (CORS).
+      responses:
+        "200":
+          description: The caller's address.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MyIpResult" }
+              examples:
+                myip:
+                  summary: A home connection in Paris
+                  x-varies: true
+                  value:
+                    ip: 90.12.34.56
+                    version: 4
+                    routable: true
+                    location:
+                      approximate: true
+                      city: Paris
+                      region: Île-de-France
+                      regionCode: IDF
+                      country: FR
+                      postalCode: "75001"
+                      continent: EU
+                      timezone: Europe/Paris
+                      latitude: 48.8566
+                      longitude: 2.3522
+                    isp:
+                      asn: 3215
+                      organization: Orange
+          headers:
+            Cache-Control:
+              description: Always `no-store` — the answer is specific to the caller.
+              schema: { type: string }
+        "422":
+          description: The request came over IPv6, which this endpoint does not report yet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                ipv6:
+                  value: { error: You are connected over IPv6. Only IPv4 addresses are supported for now. }
+        "500":
+          description: The client address could not be determined (no `CF-Connecting-IP`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              examples:
+                unknown:
+                  value: { error: Could not determine the client IP address. }
 
   # ---------------------------------------------------------------------------
   # Security
@@ -827,8 +896,8 @@ paths:
         that served it. Import the URL into Postman, Bruno, Insomnia or any
         other client that reads OpenAPI 3.1.
 
-        This is the only endpoint that sends CORS headers, so a browser-based
-        client can load it cross-origin.
+        It is served with `Access-Control-Allow-Origin: *`, so a
+        browser-based client can load it from any origin.
       responses:
         "200":
           description: The OpenAPI document, as YAML.
@@ -928,6 +997,54 @@ components:
             `false` when the block falls inside a reserved range (RFC 1918
             private space, loopback, link-local, CGNAT, multicast,
             documentation…), so it cannot be routed on the public internet.
+
+    MyIpResult:
+      type: object
+      required: [ip, version, routable, location, isp]
+      properties:
+        ip:
+          type: string
+          description: The caller's public IPv4 address, in dotted-quad form.
+        version:
+          type: integer
+          const: 4
+          description: IP version. Always `4` for now.
+        routable:
+          type: boolean
+          description: |
+            `false` for private, loopback or other reserved space — which only
+            happens when the API is reached without going through the public
+            internet (e.g. `127.0.0.1` under `wrangler dev`).
+        location:
+          type: object
+          description: Approximate location from IP geolocation. Every field may be `null`.
+          required:
+            [approximate, city, region, regionCode, country, postalCode, continent, timezone, latitude, longitude]
+          properties:
+            approximate:
+              type: boolean
+              const: true
+              description: Always `true`, as a reminder that this is an estimate.
+            city: { type: [string, "null"], description: City name, in English. }
+            region: { type: [string, "null"], description: "Region or state, e.g. `Île-de-France`." }
+            regionCode: { type: [string, "null"], description: "ISO 3166-2 region code, e.g. `IDF`." }
+            country: { type: [string, "null"], description: "ISO 3166-1 alpha-2 country code, e.g. `FR`." }
+            postalCode: { type: [string, "null"], description: Postal code, when known. }
+            continent: { type: [string, "null"], description: "Continent code, e.g. `EU`." }
+            timezone: { type: [string, "null"], description: "IANA time zone, e.g. `Europe/Paris`." }
+            latitude: { type: [number, "null"], description: Latitude of the estimated location. }
+            longitude: { type: [number, "null"], description: Longitude of the estimated location. }
+        isp:
+          type: object
+          description: The network the address belongs to.
+          required: [asn, organization]
+          properties:
+            asn:
+              type: [integer, "null"]
+              description: Autonomous System Number of the network, e.g. `3215`.
+            organization:
+              type: [string, "null"]
+              description: Name of the organisation that owns the AS — usually the ISP or hosting provider.
 
     # --- Security ----------------------------------------------------------
     JwtRequest:
