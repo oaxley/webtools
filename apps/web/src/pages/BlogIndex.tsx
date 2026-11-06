@@ -61,19 +61,6 @@ function BlogIndex() {
             Practical how-tos on tokens, certificates, identifiers and networks, plus how to
             hand the same tools to your AI agents through our API and MCP server.
           </p>
-          <a className="blog-hero-rss" href="/blog/rss.xml">
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
-              <circle cx="5" cy="19" r="2" fill="currentColor" />
-              <path
-                d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            Subscribe via RSS
-          </a>
         </div>
       </section>
 

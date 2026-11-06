@@ -3,9 +3,9 @@ export interface PostMeta {
   /** URL slug — the MDX file name without `.mdx`. */
   slug: string
   title: string
-  /** One-liner for listing cards, meta description and RSS. */
+  /** One-liner for listing cards and the meta description. */
   description: string
-  /** YYYY-MM-DD. Used for sorting, RSS and sitemap only — never displayed. */
+  /** YYYY-MM-DD. Used for sorting and the sitemap only — never displayed. */
   date: string
   /** YYYY-MM-DD of the last meaningful update, if any. */
   updated?: string

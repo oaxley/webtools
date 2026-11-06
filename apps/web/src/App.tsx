@@ -33,9 +33,6 @@ function SiteFooter() {
               <Link to="/blog">Blog</Link>
             </li>
             <li>
-              <a href="/blog/rss.xml">RSS feed</a>
-            </li>
-            <li>
               <Link to="/api">REST API</Link>
             </li>
             <li>

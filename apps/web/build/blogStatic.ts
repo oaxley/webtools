@@ -13,7 +13,6 @@
  *     dist/blog.html                listing page with its own meta tags
  *     dist/blog/<slug>.html         one per post: title, description,
  *                                   canonical, Open Graph, JSON-LD
- *     dist/blog/rss.xml             RSS 2.0 feed
  *     dist/sitemap.xml              home, /tools, tools, /api, /mcp and posts
  *     dist/tools.html               the full tool list
  *     dist/<tool>.html              one per available tool (meta tags)
@@ -70,11 +69,6 @@ function escapeXml(s: string): string {
     .replace(/'/g, '&apos;')
 }
 
-/** RFC 822 date for RSS, at noon UTC to avoid day shifts in readers. */
-function rssDate(isoDay: string): string {
-  return new Date(`${isoDay}T12:00:00Z`).toUTCString()
-}
-
 interface PageMeta {
   title: string
   description: string
@@ -92,7 +86,7 @@ interface PageMeta {
 }
 
 /** Rewrite the built `index.html` head for one page. */
-function renderHtml(template: string, meta: PageMeta, siteUrl: string): string {
+function renderHtml(template: string, meta: PageMeta): string {
   const title = escapeXml(meta.title)
   const description = escapeXml(meta.description)
   const tags = [
@@ -112,7 +106,6 @@ function renderHtml(template: string, meta: PageMeta, siteUrl: string): string {
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${description}" />`,
     `<meta name="twitter:image" content="${meta.image}" />`,
-    `<link rel="alternate" type="application/rss+xml" title="${SITE_CONFIG.name} blog" href="${siteUrl}/blog/rss.xml" />`,
     ...(meta.jsonLd
       ? [
           `<script type="application/ld+json">${JSON.stringify(meta.jsonLd).replace(/</g, '\\u003c')}</script>`,
@@ -127,38 +120,6 @@ function renderHtml(template: string, meta: PageMeta, siteUrl: string): string {
       `<meta name="description" content="${description}" />`,
     )
     .replace('</head>', `  ${tags.join('\n    ')}\n  </head>`)
-}
-
-function renderRss(posts: PostMeta[], siteUrl: string): string {
-  const items = posts
-    .map((p) => {
-      const url = `${siteUrl}/blog/${p.slug}`
-      return [
-        '    <item>',
-        `      <title>${escapeXml(p.title)}</title>`,
-        `      <link>${url}</link>`,
-        `      <guid isPermaLink="true">${url}</guid>`,
-        `      <description>${escapeXml(p.description)}</description>`,
-        `      <pubDate>${rssDate(p.date)}</pubDate>`,
-        `      <dc:creator>${escapeXml(SITE_CONFIG.author)}</dc:creator>`,
-        ...p.tags.map((t) => `      <category>${escapeXml(t)}</category>`),
-        '    </item>',
-      ].join('\n')
-    })
-    .join('\n')
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>${SITE_CONFIG.name} blog</title>
-    <link>${siteUrl}/blog</link>
-    <atom:link href="${siteUrl}/blog/rss.xml" rel="self" type="application/rss+xml" />
-    <description>Practical guides for developers and network engineers, built around the ${SITE_CONFIG.name} tools, API and MCP server.</description>
-    <language>en</language>
-${items}
-  </channel>
-</rss>
-`
 }
 
 function renderSitemap(posts: PostMeta[], siteUrl: string): string {
@@ -265,7 +226,7 @@ export function blogStatic(options: Options = {}): Plugin {
         return `${siteUrl}/og/${name}.png`
       }
       const page = (file: string, meta: PageMeta) =>
-        writeFile(join(outDir, file), renderHtml(template, meta, siteUrl))
+        writeFile(join(outDir, file), renderHtml(template, meta))
 
       const available = TOOLS.filter((t) => t.available)
       const toolsLine = `${available.length} tools`
@@ -295,7 +256,7 @@ export function blogStatic(options: Options = {}): Plugin {
           eyebrow: 'Blog',
           title: 'Guides for the tools you reach for every day.',
           description: 'Tokens, certificates, identifiers, networks, hashes and passwords.',
-          footer: [`${list.length} guides`, 'RSS feed'],
+          footer: [`${list.length} guides`],
         }),
         imageAlt: `${SITE_CONFIG.name} blog`,
       })
@@ -421,7 +382,6 @@ export function blogStatic(options: Options = {}): Plugin {
 
       writeFile(join(outDir, 'apple-touch-icon.png'), renderAppIcon(180))
 
-      writeFile(join(outDir, 'blog', 'rss.xml'), renderRss(list, siteUrl))
       writeFile(join(outDir, 'sitemap.xml'), renderSitemap(list, siteUrl))
     },
   }

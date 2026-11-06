@@ -3,7 +3,7 @@
  *
  * Runs in Node at build/dev time only. The result feeds the
  * `virtual:blog-posts` module (listing data for the app) and the
- * Cloudflare Pages artefacts (per-post HTML, RSS, sitemap). Any invalid
+ * Cloudflare Pages artefacts (per-post HTML, sitemap). Any invalid
  * frontmatter throws, which fails `vite build` and shows the error
  * overlay in dev — a broken post never ships silently.
  */
