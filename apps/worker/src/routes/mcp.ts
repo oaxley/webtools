@@ -32,6 +32,10 @@
  * - `generate_ulid(count?, monotonic?, lowercase?)` — mirrors
  *   `/api/v1/ulid`. Returns `{ monotonic, lowercase, count, ulids }` with
  *   1..10 ULIDs (default: monotonic, upper case).
+ * - `generate_fake_data(fields, count?, seed?)` — mirrors
+ *   `/api/v1/fake-data`. Returns `{ fields, count, seed, records }` with
+ *   1..100 flat fake records built from the chosen fields or groups,
+ *   capped at 1,000 values (fields × count) per call.
  * - `convert_base64` / `convert_base32` / `convert_base58`
  *   `(operation, data, inputFormat?, …options)` — mirror
  *   `/api/v1/base64|base32|base58`, same size caps and result shapes
@@ -86,8 +90,21 @@ import {
   toJwtJsonSummary,
   toX509ApiResponse,
 } from "@webtools/core";
+import {
+  FAKE_DATA_GROUPS,
+  FAKE_DATA_SELECTORS,
+  generateFakeData,
+  MAX_FAKE_DATA_COUNT,
+  MAX_FAKE_DATA_SEED,
+  MAX_FAKE_DATA_VALUES,
+} from "@webtools/core/fakeData";
 
 const mcp = new Hono();
+
+/** `person (firstName, lastName, …); location (…)` for the tool description. */
+const FAKE_DATA_CATALOG_SUMMARY = FAKE_DATA_GROUPS.map(
+  (g) => `${g.id} (${g.fields.map((f) => f.id.slice(g.id.length + 1)).join(", ")})`,
+).join("; ");
 
 /** Wrap a JSON-serialisable value as a successful text tool result. */
 function jsonResult(value: unknown) {
@@ -336,6 +353,56 @@ function buildServer(): McpServer {
         return jsonResult({ monotonic, lowercase, count: ulids.length, ulids });
       } catch (e) {
         return errorResult(e, "Invalid ULID request");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_fake_data",
+    {
+      title: "Fake Data Generator",
+      description:
+        `Generate 1 to ${MAX_FAKE_DATA_COUNT} realistic fake records (people, US addresses, ` +
+        "companies, internet, finance, commerce, dates, misc) to seed databases or test UIs. " +
+        "Pick whole groups or single fields. Records are flat objects; fields of one group " +
+        "agree within a record (email and username are built from the person's name, the ZIP " +
+        "code matches the state). Values are fake and only suitable for testing. " +
+        `At most ${MAX_FAKE_DATA_VALUES} values per call (fields × count, groups expanded): ` +
+        "all 10 person fields fit 100 records; for more, make several calls with different seeds. " +
+        `Groups and their fields: ${FAKE_DATA_CATALOG_SUMMARY}.`,
+      inputSchema: {
+        fields: z
+          .array(z.enum(FAKE_DATA_SELECTORS as [string, ...string[]]))
+          .min(1)
+          .describe(
+            "Group ids (e.g. `person`, all its fields) and/or field ids (e.g. `person.email`, " +
+              "`location.city`). Output keys follow catalog order.",
+          ),
+        count: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_FAKE_DATA_COUNT)
+          .optional()
+          .describe(
+            `How many records to generate, 1 to ${MAX_FAKE_DATA_COUNT} (default 1), ` +
+              `and at most ${MAX_FAKE_DATA_VALUES} divided by the number of fields`,
+          ),
+        seed: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_FAKE_DATA_SEED)
+          .optional()
+          .describe("Seed for reproducible records: the same seed and fields give the same output"),
+      },
+    },
+    ({ fields, count = 1, seed }) => {
+      try {
+        // Same shape as GET /api/v1/fake-data.
+        return jsonResult(generateFakeData({ fields, count, seed }));
+      } catch (e) {
+        return errorResult(e, "Invalid fake data request");
       }
     },
   );

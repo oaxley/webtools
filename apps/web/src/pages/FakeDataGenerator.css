@@ -1,0 +1,241 @@
+/* Fake data generator page. Controls come from components/ToolPage.css. */
+
+.fake-number {
+  width: 6em;
+}
+
+.fake-seed {
+  width: 9em;
+}
+
+.fake-error {
+  color: var(--danger);
+}
+
+.fake-capped {
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--text-h);
+}
+
+/* Fields on the left, records on the right; stacked on narrow screens. */
+.fake-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 24px;
+
+  @media (max-width: 760px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Field picker ---------------------------------------------------------- */
+
+.fake-fields {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.fake-fields-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid var(--border);
+
+  & h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+}
+
+.fake-fields-actions {
+  display: flex;
+  gap: 2px;
+
+  & .button {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
+
+.fake-group {
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+
+  & summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '▸';
+      order: 3;
+      font-size: 11px;
+      color: var(--text-soft);
+      transition: transform 0.15s;
+    }
+
+    &:hover {
+      background: var(--surface-2);
+    }
+  }
+
+  &[open] summary::after {
+    transform: rotate(90deg);
+  }
+
+  & ul {
+    margin: 0;
+    padding: 0 14px 10px 36px;
+    list-style: none;
+  }
+}
+
+.fake-group-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+.fake-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 14px;
+  color: var(--text-h);
+  cursor: pointer;
+
+  & input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+}
+
+.fake-group-check {
+  font-weight: 600;
+}
+
+/* ---- Results --------------------------------------------------------------- */
+
+.fake-results {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.fake-results-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 12px 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+
+  & h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+}
+
+.fake-results-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fake-download {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.fake-empty {
+  margin: 0;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text);
+}
+
+.fake-table-wrap {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.fake-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  & th,
+  & td {
+    max-width: 280px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  & th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  & td {
+    font-family: var(--font-mono);
+    color: var(--text-h);
+  }
+
+  & tbody tr:hover {
+    background: var(--surface);
+  }
+}
+
+.fake-code {
+  max-height: 70vh;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-h);
+  white-space: pre;
+}

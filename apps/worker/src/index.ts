@@ -8,6 +8,7 @@
  */
 import { Hono } from "hono";
 import { base32, base58, base64 } from "./routes/encoding";
+import fakeData from "./routes/fakeData";
 import hash from "./routes/hash";
 import ip from "./routes/ip";
 import jwt from "./routes/jwt";
@@ -32,6 +33,7 @@ app.route("/api/v1/x509", x509);
 app.route("/api/v1/uuid", uuid);
 app.route("/api/v1/nanoid", nanoid);
 app.route("/api/v1/ulid", ulid);
+app.route("/api/v1/fake-data", fakeData);
 app.route("/api/v1/base64", base64);
 app.route("/api/v1/base32", base32);
 app.route("/api/v1/base58", base58);

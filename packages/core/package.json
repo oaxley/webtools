@@ -9,6 +9,10 @@
     },
     "exports": {
         ".": "./src/index.ts",
-        "./passwordStrength": "./src/passwordStrength.ts"
+        "./passwordStrength": "./src/passwordStrength.ts",
+        "./fakeData": "./src/fakeData.ts"
+    },
+    "dependencies": {
+        "@faker-js/faker": "^10.6.0"
     }
 }

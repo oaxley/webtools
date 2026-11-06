@@ -75,6 +75,7 @@ describe("POST /mcp", () => {
       "convert_base64",
       "decode_jwt",
       "decode_x509",
+      "generate_fake_data",
       "generate_nanoid",
       "generate_password",
       "generate_ulid",
@@ -88,6 +89,10 @@ describe("POST /mcp", () => {
     expect(byName.generate_ulid.description).toMatch(/ULID/);
     expect(byName.generate_ulid.inputSchema.properties).toHaveProperty(
       "monotonic",
+    );
+    expect(byName.generate_fake_data.description).toMatch(/person \(firstName/);
+    expect(byName.generate_fake_data.inputSchema.properties).toHaveProperty(
+      "fields",
     );
     expect(byName.generate_nanoid.description).toMatch(/NanoID/);
     expect(byName.generate_nanoid.inputSchema.properties).toHaveProperty(
@@ -506,6 +511,54 @@ describe("POST /mcp — generate_nanoid", () => {
       expect(failed).toBe(true);
     },
   );
+});
+
+async function callGenerateFakeData(args: Record<string, unknown>) {
+  const response = await rpc({
+    jsonrpc: "2.0",
+    id: 42,
+    method: "tools/call",
+    params: { name: "generate_fake_data", arguments: args },
+  });
+  expect(response.status).toBe(200);
+  return (await response.json()) as ToolCallBody;
+}
+
+describe("POST /mcp — generate_fake_data", () => {
+  it("returns the same shape as /api/v1/fake-data", async () => {
+    const body = await callGenerateFakeData({
+      fields: ["person.email", "location"],
+      count: 3,
+    });
+    expect(body.result?.isError).toBeFalsy();
+    const payload = JSON.parse(body.result!.content![0].text);
+    expect(payload).toMatchObject({ count: 3, seed: null });
+    expect(payload.fields[0]).toBe("person.email");
+    expect(payload.fields).toContain("location.zipCode");
+    expect(payload.records).toHaveLength(3);
+    expect(payload.records[0]).toHaveProperty("email");
+    expect(payload.records[0]).toHaveProperty("city");
+  });
+
+  it("is reproducible with a seed", async () => {
+    const args = { fields: ["person", "date"], count: 4, seed: 7 };
+    const a = JSON.parse((await callGenerateFakeData(args)).result!.content![0].text);
+    const b = JSON.parse((await callGenerateFakeData(args)).result!.content![0].text);
+    expect(a.records).toEqual(b.records);
+  });
+
+  it.each([
+    {},
+    { fields: [] },
+    { fields: ["nope"] },
+    { fields: ["person"], count: 101 },
+    { fields: ["person", "location"], count: 100 },
+    { fields: ["person"], seed: -1 },
+  ])("rejects %o", async (args) => {
+    const body = await callGenerateFakeData(args);
+    const failed = body.error !== undefined || body.result?.isError === true;
+    expect(failed).toBe(true);
+  });
 });
 
 async function callGeneratePassword(args: Record<string, unknown>) {

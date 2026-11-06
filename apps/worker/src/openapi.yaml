@@ -883,6 +883,88 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
 
+  /api/v1/fake-data:
+    get:
+      operationId: generateFakeData
+      tags: [Data]
+      summary: Generate fake test data
+      description: |
+        Realistic-looking records to seed a database or fill a UI, built with
+        [Faker](https://fakerjs.dev). Pick whole groups (`person`, `location`,
+        `company`, `internet`, `finance`, `commerce`, `date`, `misc`) or
+        single fields (`person.email`, `location.city`, …).
+
+        Records are flat objects. Their keys follow the catalog order, not
+        the order of `fields`. Fields of one group agree within a record: the
+        email and username are built from the person's name, and the ZIP code
+        matches the state. Every value is fake and only meant for testing.
+
+        | Group | Fields (record key) |
+        |-------|---------------------|
+        | `person` | `firstName`, `lastName`, `fullName`, `sex`, `birthdate`, `jobTitle`, `email`, `username`, `phone`, `avatar` |
+        | `location` | `street`, `city`, `state`, `zipCode`, `country`, `countryCode`, `latitude`, `longitude` (US addresses) |
+        | `company` | `name` (`companyName`), `domain` (`companyDomain`), `catchPhrase`, `department` |
+        | `internet` | `url`, `domain`, `ipv4`, `ipv6`, `mac`, `userAgent`, `password` |
+        | `finance` | `iban`, `creditCard`, `currency`, `amount`, `accountNumber` |
+        | `commerce` | `productName`, `price`, `isbn`, `color` |
+        | `date` | `past` (`pastDate`), `recent` (`recentDate`), `future` (`futureDate`) |
+        | `misc` | `id` (1, 2, …), `uuid`, `boolean`, `integer`, `sentence`, `paragraph` |
+
+        Responses are `no-store`.
+      parameters:
+        - name: fields
+          in: query
+          required: true
+          description: |
+            Comma-separated group and field ids. The parameter may also be
+            repeated (`fields=person&fields=location.city`).
+          schema:
+            type: string
+            examples: ["person,location.city", "person.fullName,person.email"]
+          examples:
+            seeded: { value: "person.fullName,person.email,location.city,misc.id" }
+        - name: count
+          in: query
+          description: |
+            How many records to return. The number of fields (groups
+            expanded) times `count` may not exceed 1,000 values, so the
+            real maximum is `min(100, floor(1000 / fields))`: 100 records of
+            the 10 `person` fields, 21 records of every field. Larger
+            requests get a 400 that gives the maximum for those fields.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 1 }
+          examples:
+            seeded: { value: 2 }
+        - name: seed
+          in: query
+          description: |
+            Makes the output reproducible: the same seed, fields and count
+            always return the same records, dates included (relative dates
+            are then computed from 2026-01-01T00:00:00Z instead of now).
+          schema: { type: integer, minimum: 0, maximum: 4294967295 }
+          examples:
+            seeded: { value: 42 }
+      responses:
+        "200":
+          description: The generated records.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FakeDataResult" }
+              examples:
+                seeded:
+                  summary: Two seeded records
+                  value:
+                    fields: [person.fullName, person.email, location.city, misc.id]
+                    count: 2
+                    seed: 42
+                    records:
+                      - { fullName: Nikita Crist, email: Nikita_Crist@gmail.com, city: Deckowberg, id: 1 }
+                      - { fullName: Jaclyn Conn, email: Jaclyn.Conn@gmail.com, city: Kobyville, id: 2 }
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
   # ---------------------------------------------------------------------------
   # Meta
   # ---------------------------------------------------------------------------
@@ -1355,6 +1437,25 @@ components:
           items: { type: string }
 
     # --- Data --------------------------------------------------------------
+    FakeDataResult:
+      type: object
+      required: [fields, count, seed, records]
+      properties:
+        fields:
+          description: The selected field ids, groups expanded, in output order.
+          type: array
+          items: { type: string }
+        count: { type: integer }
+        seed:
+          description: The seed used, or `null` for a random run.
+          type: [integer, "null"]
+        records:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: [string, number, boolean]
+
     # The three encodings share `data`, `operation` and `inputFormat`; each
     # request schema adds only the options that encoding actually supports,
     # so an unsupported option is visible as such in a generated client.

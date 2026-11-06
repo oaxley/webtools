@@ -7,6 +7,7 @@ import Home from './pages/Home.tsx'
 import BlogIndex from './pages/BlogIndex.tsx'
 import BlogPost from './pages/BlogPost.tsx'
 import EncodingTool from './pages/EncodingTool.tsx'
+import FakeDataGeneratorRoute from './pages/FakeDataGeneratorRoute.tsx'
 import HashGenerator from './pages/HashGenerator.tsx'
 import IpCalculator from './pages/IpCalculator.tsx'
 import JwtDecoder from './pages/JwtDecoder.tsx'
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="base32" element={<EncodingTool encoding="base32" />} />
           <Route path="base58" element={<EncodingTool encoding="base58" />} />
           <Route path="hash" element={<HashGenerator />} />
+          <Route path="fake-data" element={<FakeDataGeneratorRoute />} />
           <Route path="blog" element={<BlogIndex />} />
           <Route path="blog/:slug" element={<BlogPost />} />
           <Route path="api" element={<ApiPageRoute />} />
