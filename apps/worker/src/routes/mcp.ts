@@ -35,7 +35,8 @@
  * - `generate_fake_data(fields, count?, seed?)` — mirrors
  *   `/api/v1/fake-data`. Returns `{ fields, count, seed, records }` with
  *   1..100 flat fake records built from the chosen fields or groups,
- *   capped at 1,000 values (fields × count) per call.
+ *   capped at 1,000 values (fields × count) per call. `safe` (default
+ *   true) uses values reserved for testing.
  * - `convert_base64` / `convert_base32` / `convert_base58`
  *   `(operation, data, inputFormat?, …options)` — mirror
  *   `/api/v1/base64|base32|base58`, same size caps and result shapes
@@ -367,6 +368,8 @@ function buildServer(): McpServer {
         "Pick whole groups or single fields. Records are flat objects; fields of one group " +
         "agree within a record (email and username are built from the person's name, the ZIP " +
         "code matches the state). Values are fake and only suitable for testing. " +
+        "By default (safe: true), emails, domains, phones, IPs and MAC addresses use values " +
+        "reserved for testing (example.com, 555-01xx, documentation ranges). " +
         `At most ${MAX_FAKE_DATA_VALUES} values per call (fields × count, groups expanded): ` +
         "all 10 person fields fit 100 records; for more, make several calls with different seeds. " +
         `Groups and their fields: ${FAKE_DATA_CATALOG_SUMMARY}.`,
@@ -395,12 +398,20 @@ function buildServer(): McpServer {
           .max(MAX_FAKE_DATA_SEED)
           .optional()
           .describe("Seed for reproducible records: the same seed and fields give the same output"),
+        safe: z
+          .boolean()
+          .optional()
+          .describe(
+            "Use values reserved for testing (default true): emails and domains under " +
+              "example.com / .example, 555-01xx phone numbers, IPs from the documentation " +
+              "ranges, locally administered MAC addresses",
+          ),
       },
     },
-    ({ fields, count = 1, seed }) => {
+    ({ fields, count = 1, seed, safe = true }) => {
       try {
         // Same shape as GET /api/v1/fake-data.
-        return jsonResult(generateFakeData({ fields, count, seed }));
+        return jsonResult(generateFakeData({ fields, count, seed, safe }));
       } catch (e) {
         return errorResult(e, "Invalid fake data request");
       }

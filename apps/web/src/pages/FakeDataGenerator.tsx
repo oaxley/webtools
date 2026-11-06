@@ -14,7 +14,7 @@ import {
 } from '@webtools/core/fakeData'
 import CopyJsonButton from '../components/CopyJsonButton'
 import { SegmentedControl, ToolPage } from '../components/ToolPage'
-import { readInt } from '../urlParams'
+import { readBool, readInt } from '../urlParams'
 import './FakeDataGenerator.css'
 
 type View = 'table' | 'json' | 'csv'
@@ -134,6 +134,7 @@ function FakeDataGenerator() {
   )
   const [countInput, setCountInput] = useState(String(count))
   const [seedInput, setSeedInput] = useState(() => params.get('seed') ?? '')
+  const [safe, setSafe] = useState(() => readBool(params, 'safe') ?? true)
   const [view, setView] = useState<View>(() => {
     const v = params.get('view')
     return v === 'json' || v === 'csv' ? v : 'table'
@@ -147,7 +148,7 @@ function FakeDataGenerator() {
     return countInput.trim() !== '' && Number.isInteger(n) && n >= 1 && n <= MAX_FAKE_DATA_COUNT
   })()
 
-  const writeUrl = (patch: { fields?: Set<string>; count?: number; seed?: string; view?: View }) => {
+  const writeUrl = (patch: { fields?: Set<string>; count?: number; seed?: string; safe?: boolean; view?: View }) => {
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -160,6 +161,7 @@ function FakeDataGenerator() {
         }
         if (patch.count !== undefined) set('count', String(patch.count), patch.count === DEFAULT_COUNT)
         if (patch.seed !== undefined) set('seed', patch.seed.trim(), patch.seed.trim() === '')
+        if (patch.safe !== undefined) set('safe', patch.safe ? '1' : '0', patch.safe)
         if (patch.view) set('view', patch.view, patch.view === 'table')
         return next
       },
@@ -193,8 +195,8 @@ function FakeDataGenerator() {
   const records = useMemo(() => {
     void nonce
     if (fields.length === 0 || seed === null) return []
-    return generateFakeData({ fields, count: effectiveCount, seed }).records
-  }, [fields, effectiveCount, seed, nonce])
+    return generateFakeData({ fields, count: effectiveCount, seed, safe }).records
+  }, [fields, effectiveCount, seed, safe, nonce])
 
   const json = useMemo(() => JSON.stringify(records, null, 2), [records])
   const csv = useMemo(() => toCsv(keys, records), [keys, records])
@@ -249,6 +251,21 @@ function FakeDataGenerator() {
               if (parseSeed(e.target.value) !== null) writeUrl({ seed: e.target.value })
             }}
           />
+        </label>
+
+        <label
+          className="tool-check"
+          title="Emails and domains under example.com / .example, 555-01xx phone numbers, IPs from the documentation ranges and locally administered MAC addresses, so the data can't reach a real inbox, phone or host by accident"
+        >
+          <input
+            type="checkbox"
+            checked={safe}
+            onChange={(e) => {
+              setSafe(e.target.checked)
+              writeUrl({ safe: e.target.checked })
+            }}
+          />
+          Safe values
         </label>
 
         <div className="tool-field">

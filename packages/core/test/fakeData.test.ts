@@ -10,6 +10,7 @@ import {
     FAKE_DATA_FIELD_IDS,
     FAKE_DATA_GROUP_IDS,
     FAKE_DATA_GROUPS,
+    FAKE_DATA_SAFE_FIELD_IDS,
     FAKE_DATA_SELECTORS,
     generateFakeData,
     MAX_FAKE_DATA_COUNT,
@@ -88,6 +89,7 @@ describe("generateFakeData", () => {
         const result = generateFakeData({ fields: ["person.firstName"] });
         assert.equal(result.count, 1);
         assert.equal(result.seed, null);
+        assert.equal(result.safe, true);
         assert.deepEqual(result.fields, ["person.firstName"]);
         assert.deepEqual(Object.keys(result.records[0]), ["firstName"]);
         assert.equal(typeof result.records[0].firstName, "string");
@@ -133,6 +135,61 @@ describe("generateFakeData", () => {
             assert.equal(r.countryCode, "US");
             assert.ok(Math.abs(Number(r.latitude)) <= 90);
             assert.ok(Math.abs(Number(r.longitude)) <= 180);
+        }
+    });
+
+    it("uses values reserved for testing by default", () => {
+        const { records } = generateFakeData({
+            fields: FAKE_DATA_SAFE_FIELD_IDS,
+            count: 100,
+        });
+        for (const r of records) {
+            assert.match(String(r.email), /@example\.(com|net|org)$/);
+            assert.match(String(r.phone), /^\(\d{3}\) 555-01\d{2}$/);
+            assert.match(String(r.companyDomain), /^[a-z0-9-]+\.example$/);
+            assert.match(String(r.url), /^https:\/\/[a-z0-9-]+\.example\/$/);
+            assert.match(String(r.domain), /^[a-z0-9-]+\.example$/);
+            assert.match(
+                String(r.ipv4),
+                /^(192\.0\.2|198\.51\.100|203\.0\.113)\.\d{1,3}$/,
+            );
+            assert.match(String(r.ipv6), /^2001:db8(:[0-9a-f]{1,4}){6}$/);
+            const mac = String(r.mac);
+            assert.match(mac, /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/);
+            // Locally administered, unicast.
+            assert.equal(parseInt(mac.slice(0, 2), 16) & 0x03, 0x02);
+        }
+    });
+
+    it("uses ordinary values when safe is false", () => {
+        const result = generateFakeData({
+            fields: ["person.email", "internet.domain"],
+            count: 50,
+            safe: false,
+        });
+        assert.equal(result.safe, false);
+        assert.ok(
+            result.records.some((r) => !/@example\./.test(String(r.email))),
+        );
+        assert.ok(
+            result.records.some((r) => !String(r.domain).endsWith(".example")),
+        );
+    });
+
+    it("rejects a non-boolean safe", () => {
+        assert.throws(
+            () =>
+                generateFakeData({
+                    fields: ["person"],
+                    safe: "no" as unknown as boolean,
+                }),
+            /safe must be true or false/,
+        );
+    });
+
+    it("lists safe fields that exist", () => {
+        for (const id of FAKE_DATA_SAFE_FIELD_IDS) {
+            assert.ok(FAKE_DATA_FIELD_IDS.includes(id), id);
         }
     });
 

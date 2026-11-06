@@ -16,6 +16,11 @@
  * across every group), in catalog order. Pass a `seed` to get the same
  * records every time: seeded runs also pin the reference date used for
  * relative dates (birthdates, past/future dates) to `FAKE_DATA_SEED_REF_DATE`.
+ *
+ * "Safe" mode (on by default) swaps the values that could reach something
+ * real, such as an email address or a public IP, for values reserved for
+ * testing. It lowers the risk, it doesn't remove it: see
+ * `FakeDataOptions.safe`.
  */
 import { base, en, en_US, Faker } from "@faker-js/faker";
 
@@ -49,7 +54,8 @@ interface FieldSpec {
     label: string;
     /** Example value, shown in the UI and the MCP description. */
     example: string;
-    generate: (faker: Faker, ctx: Context, index: number) => FakeValue;
+    /** `safe`: use values reserved for testing (see FakeDataOptions.safe). */
+    generate: (faker: Faker, ctx: Context, index: number, safe: boolean) => FakeValue;
 }
 
 interface GroupSpec {
@@ -66,15 +72,46 @@ function isoDate(date: Date): string {
     return date.toISOString().slice(0, 10);
 }
 
-/** `Acme, Inc.` → `acme-inc.com`. */
-function domainOf(companyName: string): string {
+/** `Acme, Inc.` → `acme-inc.com` (`acme-inc.example` when safe). */
+function domainOf(companyName: string, safe: boolean): string {
     const slug = companyName
         .toLowerCase()
         .normalize("NFKD")
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .replace(/-(inc|llc|group)$/, "");
-    return `${slug || "example"}.com`;
+    return `${slug || "example"}.${safe ? "example" : "com"}`;
+}
+
+/** IPv4 documentation ranges (RFC 5737), as faker network names. */
+const TEST_NETS = ["test-net-1", "test-net-2", "test-net-3"] as const;
+
+/** An address in the IPv6 documentation prefix `2001:db8::/32` (RFC 3849). */
+function documentationIpv6(f: Faker): string {
+    const groups = Array.from({ length: 6 }, () =>
+        f.number.int({ min: 0, max: 0xffff }).toString(16),
+    );
+    return `2001:db8:${groups.join(":")}`;
+}
+
+/**
+ * A unicast, locally administered MAC address (second-lowest bit of the
+ * first octet set): never assigned to a manufacturer, so never a real
+ * device's burned-in address.
+ */
+function localMac(f: Faker): string {
+    const first = (f.number.int({ min: 0, max: 0xff }) & 0xfc) | 0x02;
+    const rest = Array.from({ length: 5 }, () => f.number.int({ min: 0, max: 0xff }));
+    return [first, ...rest].map((b) => b.toString(16).padStart(2, "0")).join(":");
+}
+
+/**
+ * `(845) 501-0635` → `(845) 555-0135`: 555-0100 to 555-0199 are reserved
+ * for fictional use in the North American Numbering Plan.
+ */
+function fictionalPhone(f: Faker): string {
+    const area = f.phone.number({ style: "national" }).slice(0, 5);
+    return `${area} 555-01${String(f.number.int({ min: 0, max: 99 })).padStart(2, "0")}`;
 }
 
 const GROUPS: GroupSpec[] = [
@@ -139,12 +176,14 @@ const GROUPS: GroupSpec[] = [
                 name: "email",
                 key: "email",
                 label: "Email",
-                example: "Nikita_Crist83@gmail.com",
-                generate: (f, c) =>
-                    f.internet.email({
+                example: "Nikita_Crist83@example.com",
+                generate: (f, c, _i, safe) => {
+                    const name = {
                         firstName: c.firstName as string,
                         lastName: c.lastName as string,
-                    }),
+                    };
+                    return safe ? f.internet.exampleEmail(name) : f.internet.email(name);
+                },
             },
             {
                 name: "username",
@@ -161,8 +200,9 @@ const GROUPS: GroupSpec[] = [
                 name: "phone",
                 key: "phone",
                 label: "Phone",
-                example: "(845) 501-0635",
-                generate: (f) => f.phone.number({ style: "national" }),
+                example: "(845) 555-0135",
+                generate: (f, _c, _i, safe) =>
+                    safe ? fictionalPhone(f) : f.phone.number({ style: "national" }),
             },
             {
                 name: "avatar",
@@ -257,8 +297,8 @@ const GROUPS: GroupSpec[] = [
                 name: "domain",
                 key: "companyDomain",
                 label: "Company domain",
-                example: "crist-hilll.com",
-                generate: (_f, c) => domainOf(c.name as string),
+                example: "crist-hilll.example",
+                generate: (_f, c, _i, safe) => domainOf(c.name as string, safe),
             },
             {
                 name: "catchPhrase",
@@ -285,36 +325,41 @@ const GROUPS: GroupSpec[] = [
                 name: "url",
                 key: "url",
                 label: "URL",
-                example: "https://athletic-sarong.us/",
-                generate: (f) => f.internet.url(),
+                example: "https://athletic-sarong.example/",
+                generate: (f, _c, _i, safe) =>
+                    safe ? `https://${f.internet.domainWord()}.example/` : f.internet.url(),
             },
             {
                 name: "domain",
                 key: "domain",
                 label: "Domain",
-                example: "zany-bump.info",
-                generate: (f) => f.internet.domainName(),
+                example: "zany-bump.example",
+                generate: (f, _c, _i, safe) =>
+                    safe ? `${f.internet.domainWord()}.example` : f.internet.domainName(),
             },
             {
                 name: "ipv4",
                 key: "ipv4",
                 label: "IPv4 address",
                 example: "203.0.113.42",
-                generate: (f) => f.internet.ipv4(),
+                generate: (f, _c, _i, safe) =>
+                    safe
+                        ? f.internet.ipv4({ network: f.helpers.arrayElement(TEST_NETS) })
+                        : f.internet.ipv4(),
             },
             {
                 name: "ipv6",
                 key: "ipv6",
                 label: "IPv6 address",
-                example: "2001:db8:85a3::8a2e:370:7334",
-                generate: (f) => f.internet.ipv6(),
+                example: "2001:db8:85a3:0:8a2e:370:7334:1f",
+                generate: (f, _c, _i, safe) => (safe ? documentationIpv6(f) : f.internet.ipv6()),
             },
             {
                 name: "mac",
                 key: "mac",
                 label: "MAC address",
-                example: "b5:ff:47:44:09:80",
-                generate: (f) => f.internet.mac(),
+                example: "b6:ff:47:44:09:80",
+                generate: (f, _c, _i, safe) => (safe ? localMac(f) : f.internet.mac()),
             },
             {
                 name: "userAgent",
@@ -541,7 +586,28 @@ export interface FakeDataOptions {
     count?: number;
     /** Integer 0..MAX_FAKE_DATA_SEED for reproducible output. */
     seed?: number;
+    /**
+     * Use values reserved for testing where a field could otherwise hit
+     * something real (default `true`): emails and domains under
+     * `example.com`/`.example` (RFC 2606), 555-01xx phone numbers, IPs
+     * from the documentation ranges (RFC 5737, RFC 3849) and locally
+     * administered MAC addresses. Names, addresses, IBANs and card
+     * numbers are unaffected.
+     */
+    safe?: boolean;
 }
+
+/** Field ids whose values change when `safe` is on. */
+export const FAKE_DATA_SAFE_FIELD_IDS: readonly string[] = [
+    "person.email",
+    "person.phone",
+    "company.domain",
+    "internet.url",
+    "internet.domain",
+    "internet.ipv4",
+    "internet.ipv6",
+    "internet.mac",
+];
 
 export interface FakeDataResult {
     /** Expanded field ids, in output order. */
@@ -549,6 +615,8 @@ export interface FakeDataResult {
     count: number;
     /** The seed used, or `null` for a random run. */
     seed: number | null;
+    /** Whether values reserved for testing were used. */
+    safe: boolean;
     records: FakeRecord[];
 }
 
@@ -606,7 +674,7 @@ export function maxFakeDataCount(fieldCount: number): number {
  *   are meant to be surfaced verbatim by the HTTP route and MCP tool.
  */
 export function generateFakeData(options: FakeDataOptions): FakeDataResult {
-    const { fields: selectors, count = 1, seed } = options;
+    const { fields: selectors, count = 1, seed, safe = true } = options;
 
     const fields = resolveFakeDataFields(selectors);
     if (!Number.isInteger(count) || count < 1 || count > MAX_FAKE_DATA_COUNT) {
@@ -621,6 +689,9 @@ export function generateFakeData(options: FakeDataOptions): FakeDataResult {
                 `With ${fields.length} fields, ask for at most ` +
                 `${maxFakeDataCount(fields.length)} records, or pick fewer fields.`,
         );
+    }
+    if (typeof safe !== "boolean") {
+        throw new Error("safe must be true or false.");
     }
     if (
         seed !== undefined &&
@@ -650,11 +721,11 @@ export function generateFakeData(options: FakeDataOptions): FakeDataResult {
         for (const { group, fields: groupFields } of plan) {
             const ctx = group.context ? group.context(faker) : {};
             for (const field of groupFields) {
-                record[field.key] = field.generate(faker, ctx, index);
+                record[field.key] = field.generate(faker, ctx, index, safe);
             }
         }
         return record;
     });
 
-    return { fields, count: records.length, seed: seed ?? null, records };
+    return { fields, count: records.length, seed: seed ?? null, safe, records };
 }

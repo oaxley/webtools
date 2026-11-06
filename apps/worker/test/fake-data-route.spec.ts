@@ -5,6 +5,7 @@ type FakeDataBody = {
 	fields: string[];
 	count: number;
 	seed: number | null;
+	safe: boolean;
 	records: Record<string, string | number | boolean>[];
 };
 
@@ -21,7 +22,9 @@ describe("GET /api/v1/fake-data", () => {
 			fields: ["person.firstName", "person.email"],
 			count: 1,
 			seed: null,
+			safe: true,
 		});
+		expect(body.records[0].email).toMatch(/@example\.(com|net|org)$/);
 		expect(body.records).toHaveLength(1);
 		expect(Object.keys(body.records[0])).toEqual(["firstName", "email"]);
 		expect(body.records[0].email).toMatch(/@/);
@@ -52,6 +55,14 @@ describe("GET /api/v1/fake-data", () => {
 		expect(body.records).toHaveLength(100);
 	});
 
+	it("turns safe values off with safe=false", async () => {
+		const body = (await (
+			await get("?fields=person.email&count=50&safe=false")
+		).json()) as FakeDataBody;
+		expect(body.safe).toBe(false);
+		expect(body.records.some((r) => !/@example\./.test(String(r.email)))).toBe(true);
+	});
+
 	it("is reproducible with a seed", async () => {
 		const query = "?fields=person,location,date&count=5&seed=42";
 		const a = (await (await get(query)).json()) as FakeDataBody;
@@ -71,6 +82,7 @@ describe("GET /api/v1/fake-data", () => {
 		["?fields=person&seed=-1", /seed must be an integer between 0 and/],
 		["?fields=person&seed=", /seed must be an integer between 0 and/],
 		["?fields=person&seed=1.5", /seed must be an integer between 0 and/],
+		["?fields=person&safe=maybe", /'safe' must be true or false/],
 		[
 			"?fields=person,location.city&count=91",
 			/fields × count must be at most 1000 values \(got 11 × 91 = 1001\)/,

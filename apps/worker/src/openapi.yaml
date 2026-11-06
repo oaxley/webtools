@@ -899,6 +899,17 @@ paths:
         email and username are built from the person's name, and the ZIP code
         matches the state. Every value is fake and only meant for testing.
 
+        With `safe` on (the default), the fields that could reach something
+        real use values reserved for testing instead: emails under
+        `example.com`, `.net` or `.org` and domains under `.example`
+        ([RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)),
+        phone numbers in 555-0100–0199, IPv4 addresses from the
+        documentation ranges ([RFC 5737](https://datatracker.ietf.org/doc/html/rfc5737)),
+        IPv6 addresses under `2001:db8::/32`
+        ([RFC 3849](https://datatracker.ietf.org/doc/html/rfc3849)) and
+        locally administered MAC addresses. Names, street addresses, IBANs
+        and card numbers are not affected.
+
         | Group | Fields (record key) |
         |-------|---------------------|
         | `person` | `firstName`, `lastName`, `fullName`, `sex`, `birthdate`, `jobTitle`, `email`, `username`, `phone`, `avatar` |
@@ -943,6 +954,12 @@ paths:
           schema: { type: integer, minimum: 0, maximum: 4294967295 }
           examples:
             seeded: { value: 42 }
+        - name: safe
+          in: query
+          description: |
+            Use values reserved for testing for emails, domains, URLs,
+            phones, IPs and MAC addresses. `false` gives ordinary values.
+          schema: { type: boolean, default: true }
       responses:
         "200":
           description: The generated records.
@@ -956,9 +973,10 @@ paths:
                     fields: [person.fullName, person.email, location.city, misc.id]
                     count: 2
                     seed: 42
+                    safe: true
                     records:
-                      - { fullName: Nikita Crist, email: Nikita_Crist@gmail.com, city: Deckowberg, id: 1 }
-                      - { fullName: Jaclyn Conn, email: Jaclyn.Conn@gmail.com, city: Kobyville, id: 2 }
+                      - { fullName: Nikita Crist, email: Nikita_Crist@example.com, city: Deckowberg, id: 1 }
+                      - { fullName: Jaclyn Conn, email: Jaclyn.Conn@example.com, city: Kobyville, id: 2 }
           headers:
             Cache-Control:
               $ref: "#/components/headers/NoStore"
@@ -1439,7 +1457,7 @@ components:
     # --- Data --------------------------------------------------------------
     FakeDataResult:
       type: object
-      required: [fields, count, seed, records]
+      required: [fields, count, seed, safe, records]
       properties:
         fields:
           description: The selected field ids, groups expanded, in output order.
@@ -1449,6 +1467,9 @@ components:
         seed:
           description: The seed used, or `null` for a random run.
           type: [integer, "null"]
+        safe:
+          description: Whether values reserved for testing were used.
+          type: boolean
         records:
           type: array
           items:

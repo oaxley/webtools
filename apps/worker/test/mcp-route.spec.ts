@@ -532,7 +532,8 @@ describe("POST /mcp — generate_fake_data", () => {
     });
     expect(body.result?.isError).toBeFalsy();
     const payload = JSON.parse(body.result!.content![0].text);
-    expect(payload).toMatchObject({ count: 3, seed: null });
+    expect(payload).toMatchObject({ count: 3, seed: null, safe: true });
+    expect(payload.records[0].email).toMatch(/@example\.(com|net|org)$/);
     expect(payload.fields[0]).toBe("person.email");
     expect(payload.fields).toContain("location.zipCode");
     expect(payload.records).toHaveLength(3);
@@ -554,6 +555,7 @@ describe("POST /mcp — generate_fake_data", () => {
     { fields: ["person"], count: 101 },
     { fields: ["person", "location"], count: 100 },
     { fields: ["person"], seed: -1 },
+    { fields: ["person"], safe: "no" },
   ])("rejects %o", async (args) => {
     const body = await callGenerateFakeData(args);
     const failed = body.error !== undefined || body.result?.isError === true;
