@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../theme'
 import { calculateCIDR, isRoutable, type CidrResult } from '@webtools/core'
 import CopyJsonButton from '../components/CopyJsonButton'
@@ -768,6 +768,15 @@ function IpCalculator() {
       {outcome.ok && draftError && (
         <p className="draft-hint" role="status">
           {draftError}
+        </p>
+      )}
+      {outcome.ok && outcome.result.prefix < 32 && (
+        <p className="plan-link">
+          <Link
+            to={`/subnet-planner?cidr=${encodeURIComponent(`${outcome.result.network}/${outcome.result.prefix}`)}`}
+          >
+            Split {outcome.result.network}/{outcome.result.prefix} into subnets →
+          </Link>
         </p>
       )}
 

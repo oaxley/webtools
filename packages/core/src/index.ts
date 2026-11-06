@@ -167,6 +167,27 @@ export type {
 } from "./totp";
 
 export {
+    freeBlocks,
+    intToIp,
+    ipToInt,
+    planSubnets,
+    prefixForHosts,
+    SUBNET_RESERVATION_NAMES,
+    SUBNET_RESERVATIONS,
+    usableHostsForPrefix,
+} from "./subnetPlan";
+export type {
+    PlanSubnetsOptions,
+    SubnetAllocation,
+    SubnetAllocationError,
+    SubnetPlan,
+    SubnetPlanEntry,
+    SubnetRequest,
+    SubnetReservation,
+    SubnetReservationInfo,
+} from "./subnetPlan";
+
+export {
     generateULID,
     generateULIDs,
     MAX_ULID_COUNT,

@@ -286,3 +286,8 @@
   color: var(--text);
   line-height: 1.45;
 }
+
+.plan-link {
+  margin: -16px 0 20px;
+  font-size: 14px;
+}

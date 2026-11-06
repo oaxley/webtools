@@ -3,7 +3,7 @@ title: "Reading a CIDR block: subnetting without the headache"
 description: "What /22 means in bits, how to find the network, broadcast and usable hosts of any IPv4 block, why /31 and /32 are special, and how to split a range for an office or a VPC."
 date: 2026-11-05
 tags: [cidr, subnetting, ipv4, networking]
-tools: [cidr, myip]
+tools: [cidr, subnet-planner, myip]
 cover:
   label: /24
   accent: "#2563eb"
@@ -118,6 +118,11 @@ Each extra prefix bit cuts a block in two, so a `/22` splits into two `/23`s, fo
 The rule that keeps this sane: **a block starts on a multiple of its own size.** A
 `/25` (128 addresses) starts at `.0` or `.128`, never at `.64`. Follow it and subnets
 can never overlap: two aligned blocks are either disjoint or one contains the other.
+
+The <ToolLink tool="subnet-planner" /> does this for you: give it the block and
+how many hosts each subnet needs, and it places every subnet on an aligned boundary,
+lets you split a subnet again, and lists what's left as CIDR blocks. The office plan
+above is one of its examples.
 
 Cloud networks work the same way. A VPC of `10.0.0.0/16` (65,536 addresses) is often
 cut into `/20`s per availability zone, then into public and private subnets. Leave

@@ -15,6 +15,7 @@ import ApiPageRoute from './pages/ApiPageRoute.tsx'
 import McpPage from './pages/McpPage.tsx'
 import MyIp from './pages/MyIp.tsx'
 import NanoIdGenerator from './pages/NanoIdGenerator.tsx'
+import SubnetPlanner from './pages/SubnetPlanner.tsx'
 import PasswordGeneratorRoute from './pages/PasswordGeneratorRoute.tsx'
 import TotpToolRoute from './pages/TotpToolRoute.tsx'
 import UlidGenerator from './pages/UlidGenerator.tsx'
@@ -29,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
         <Route element={<App />}>
           <Route index element={<Home />} />
           <Route path="ip" element={<IpCalculator />} />
+          <Route path="subnet-planner" element={<SubnetPlanner />} />
           <Route path="my-ip" element={<MyIp />} />
           <Route path="jwt" element={<JwtDecoder />} />
           <Route path="x509" element={<X509Decoder />} />

@@ -60,6 +60,17 @@ export const TOOLS: Tool[] = [
     mcp: 'calculate_cidr',
   },
   {
+    id: 'subnet-planner',
+    category: 'network',
+    name: 'Subnet Planner',
+    description: 'Split an IPv4 block into subnets sized by host count, with nested splits and free space.',
+    tags: ['subnet', 'vlsm', 'cidr', 'split', 'planner', 'vpc', 'ipv4', 'network'],
+    path: '/subnet-planner',
+    monogram: 'SUB',
+    accent: '#4f46e5',
+    available: true,
+  },
+  {
     id: 'myip',
     category: 'network',
     name: "What's My IP",
