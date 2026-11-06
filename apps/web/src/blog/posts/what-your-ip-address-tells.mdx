@@ -1,0 +1,144 @@
+---
+title: "What your IP address tells a website, and what it doesn't"
+description: "Every site you visit sees your public IP. What it can infer from it (a rough location and your ISP), what it can't, why many people share one address, and how servers should read the client IP."
+date: 2026-11-05
+tags: [ip, privacy, geolocation, networking]
+tools: [myip, cidr]
+cover:
+  label: IP
+  accent: "#0284c7"
+---
+
+Open any website and it learns one thing about you before you click anything: the
+IP address your request came from. The <ToolLink tool="myip" /> shows you that
+address, plus what a server can guess from it. This guide explains where those
+guesses come from, how far to trust them, and what an IP address doesn't reveal.
+
+## What every server sees
+
+To answer you, a server needs an address to send the reply to, so every TCP
+connection carries the source IP. For most people that's not the address of their
+laptop or phone (usually a private one like `192.168.1.23`) but the public address
+of their router or their mobile carrier.
+
+<TryIt tool="myip">
+  See the public IPv4 address websites see for you right now, with its approximate
+  location and network.
+</TryIt>
+
+The page shows the address, whether it's publicly routable, a location, and a
+network name with its ASN. Only the first item is a fact. The rest is looked up.
+
+## Location is a guess, and it says so
+
+Nothing in an IP packet carries GPS coordinates. Location comes from **geolocation
+databases** that map address blocks to places, built from registry records, ISP
+data, latency measurements and user reports. Our page uses the lookup Cloudflare's
+edge attaches to every request, and the API marks it `"approximate": true`.
+
+In practice:
+
+- **The country is usually right.** Address blocks are allocated per region, and ISPs
+  rarely move them across borders.
+- **The city is often wrong.** It's frequently the city where your ISP's equipment
+  sits, which can be 100 km away, or a default point in the middle of the country.
+- **The coordinates are not your house.** They're the centre of an area, and the
+  "precision" of four decimals is decoration.
+- **Mobile and VPN users show up elsewhere.** A phone on 4G exits the internet through
+  the carrier's gateway, often in another city. A VPN puts you wherever its server is.
+
+So an IP address is good enough to pick a language, a currency or a nearby data
+center, and not good enough to find a person.
+
+## The network is more reliable than the city
+
+The internet is a network of networks, each called an **autonomous system** and
+identified by a number, the **ASN**. Your ISP, a cloud provider or a large company
+each run one, and they announce to the rest of the internet which address blocks
+they handle.
+
+That announcement is public and checked by every router, so "this address belongs to
+AS3215, Orange" is far more dependable than "this address is in Lyon". It's also what
+security tools use most: traffic from a hosting provider's ASN at 3 a.m. is not a
+customer on a phone.
+
+## Many people, one address
+
+IPv4 has about 4.3 billion addresses, fewer than there are devices online. Sharing is
+the norm:
+
+- **Home NAT.** Every device in your home shares the router's public address. The
+  router keeps a table of which connection belongs to which device.
+- **Carrier-grade NAT.** Many ISPs, especially mobile ones, put whole neighbourhoods
+  behind one public address. Your router then gets an address from
+  `100.64.0.0/10`, a range reserved for exactly this
+  ([RFC 6598](https://datatracker.ietf.org/doc/html/rfc6598)). If your router's WAN
+  address starts with `100.64` to `100.127`, you're behind one.
+- **VPNs and corporate proxies.** Thousands of users leave through the same exit.
+
+This is why an IP address doesn't identify a person, and why blocking one can lock
+out a whole office, campus or mobile network. Rate limits by IP are a blunt tool
+for the same reason.
+
+<Callout type="note" title="Private, shared and public">
+`10.0.0.0/8`, `172.16.0.0/12` and `192.168.0.0/16` are private, `100.64.0.0/10` is
+the carrier-grade NAT range, and neither appears on the public internet. The
+<ToolLink tool="cidr" /> flags them, and the other reserved ranges, as not routable.
+See [Reading a CIDR block](/blog/reading-cidr-blocks) for how those ranges are written.
+</Callout>
+
+## What an IP address doesn't tell
+
+- Your name, email or street address. Only your ISP can tie an address and a time to
+  a subscriber, and it hands that over to a court, not to a website.
+- Which device or person in a household made the request.
+- What else you browse. Tracking across sites relies on cookies and fingerprinting,
+  not on the IP alone, which changes too often.
+
+It is still personal data under the GDPR, though, because combined with the ISP's
+records it can identify someone. Treat logs of IP addresses accordingly.
+
+## For developers: reading the client IP
+
+Behind a load balancer or a CDN, the TCP connection your server sees comes from the
+proxy, not from the visitor. Proxies pass the original address in a header, and
+which one you trust matters:
+
+- **`X-Forwarded-For`** is a list that every hop appends to. Anyone can send one
+  with a made-up first entry, so only the entries added by *your own* proxies are
+  trustworthy. Taking the first value blindly lets any client pick its own IP, and
+  bypass your rate limits or IP allow lists.
+- **`CF-Connecting-IP`** is set by Cloudflare's edge and overwrites anything the
+  client sent. On a Cloudflare Worker it's the one to read, and it's what our API uses.
+
+```ts
+// Hono on Cloudflare Workers
+app.get('/whoami', (c) => {
+  const ip = c.req.header('cf-connecting-ip') // set by the edge, not the client
+  return c.json({ ip })
+})
+```
+
+Behind any other proxy, configure your framework with the number or addresses of the
+proxies you trust (Express's `trust proxy`, for example) rather than parsing
+`X-Forwarded-For` yourself.
+
+## What about IPv6?
+
+With IPv6, addresses are plentiful and NAT mostly disappears: each device can get a
+public address. To avoid turning that into a permanent identifier, systems use
+**temporary addresses** that change regularly
+([RFC 8981](https://datatracker.ietf.org/doc/html/rfc8981)).
+
+Our tool is IPv4-only for now. If you reach it over IPv6, the API answers with a 422
+that says so, rather than an address the page can't analyse yet.
+
+## What we keep
+
+Nothing. The address and the lookup come with your request, the reply is built from
+them and sent back with `Cache-Control: no-store`, and nothing is logged or stored.
+The same answer is available from a script:
+
+```bash
+curl -s @@API_BASE@@/api/v1/myip
+```

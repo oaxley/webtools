@@ -1,0 +1,201 @@
+---
+title: "Test data that looks real and stays reproducible"
+description: "Why copying production data into tests is a liability, why realistic and consistent values catch more bugs than random strings, and how seeds turn fake data into fixtures you can regenerate."
+date: 2026-11-05
+tags: [testing, fixtures, faker, test-data, privacy]
+tools: [fake-data, uuid]
+cover:
+  label: FAKE
+  accent: "#9333ea"
+---
+
+Every application needs data before it has users: to fill a staging database, to
+demo a screen, to write a test. The two easy answers are both bad. A dump of
+production brings real people into places they were never meant to be. A table full
+of `test1`, `test2` and `aaa@aaa.aa` hides the bugs real data would show.
+
+This guide covers the middle path, fake data that looks real, using the
+<ToolLink tool="fake-data" />, which is built on [Faker](https://fakerjs.dev).
+
+## Why not copy production?
+
+Because the copy keeps all the obligations of the original and none of its
+protections:
+
+- **Privacy law follows the data.** Under the GDPR, customer records in a staging
+  database are still personal data. They need a legal basis, access control and a
+  deletion process there too.
+- **Staging leaks.** Test environments have weaker passwords, shared accounts, debug
+  logs and public preview links. Many breaches start there.
+- **Data travels.** It ends up in screenshots, bug reports, CI artifacts and the laptop
+  of a contractor who left last year.
+- **Side effects are real.** A test that "sends a welcome email" to a real address
+  sends it.
+
+Anonymising a dump is harder than it looks (a unique combination of postcode,
+birthdate and job title is often enough to find someone again), so the simplest
+policy is not to copy at all.
+
+## Realistic beats random
+
+Random strings pass most tests and catch few bugs. Realistic values exercise what
+real users will:
+
+- **Lengths and characters.** Names like `Alexis Gerhold-O'Keefe` break SQL built by
+  string concatenation, CSV exports without quoting and layouts that assumed eight
+  characters.
+- **Formats.** A ZIP code of `06184` loses its leading zero the moment someone stores
+  it as a number.
+- **Sorting and search.** A list of 50 believable names shows whether sorting and
+  filtering behave. A list of `user1` … `user50` sorts `user10` before `user2`.
+
+Values also need to **agree with each other** within a record. If the name says
+*Vivienne Yundt* and the email says `zq81@…`, a screen can show the wrong user's email
+and nobody notices. The generator builds every field of a group from one shared
+context: the full name, email and username come from the same first and last name,
+and the ZIP code matches the state.
+
+## Picking fields
+
+Fields are organised in groups: **Person**, **Location**, **Company**,
+**Internet**, **Finance**, **Commerce**, **Dates** and **Misc**. You can tick a
+whole group or single fields. Each record is a flat object, and keys always come in
+the same order whatever order you picked them in, so CSV columns stay stable:
+
+```json
+{
+  "fullName": "Vivienne Yundt",
+  "email": "Vivienne_Yundt@example.com",
+  "phone": "(432) 555-0103",
+  "city": "Lake Burdetteton",
+  "state": "CT",
+  "zipCode": "06184",
+  "id": 1
+}
+```
+
+The page shows the records as a table, JSON or CSV, ready to copy or download.
+
+<TryIt tool="fake-data" query="fields=person.fullName,person.email,person.phone,location.city,location.state,location.zipCode,misc.id&count=10">
+  Ten customers with a name, email, phone and a US address that agree with each
+  other. Change the ticked fields and the table follows.
+</TryIt>
+
+## Seeds: fake data you can regenerate
+
+Random data has one drawback for tests: it changes on every run. A snapshot test
+fails for no reason, a bug report says "the third record" and nobody can see it
+again.
+
+A **seed** fixes that. Faker's random numbers come from a generator that, given the
+same starting value, produces the same sequence. With a seed, the same fields and
+count always give the same records:
+
+- **Fixtures can be regenerated** instead of committed: store the seed and the field
+  list, not 2,000 lines of JSON.
+- **Snapshot tests are stable**, and a failing one points at a real change.
+- **A bug report is reproducible**: "seed 2026, record 3" means the same record to
+  everyone.
+
+Dates are included. Fields like a birthdate or a "past date" are relative to *now*,
+which would break reproducibility, so seeded runs compute them from a fixed day,
+2026-01-01, instead. A seed gives the same records on the page, in the API and in the
+MCP tool, because all three run the same code.
+
+## Values reserved for testing
+
+Realistic data has its own risk: a realistic email address may belong to someone. A
+test that sends to `Janae.Lind-Kuvalis@gmail.com` might reach a real inbox, and a
+"random" public IP in a firewall test might be someone's server.
+
+That's why the generator has a **Safe values** option, on by default. It replaces
+the fields that could reach something real with values set aside for testing:
+
+| Field | Without safe values | With safe values (default) |
+|---|---|---|
+| Email | `Janae.Lind-Kuvalis@gmail.com` | `Janae.Lind-Kuvalis@example.com` |
+| Domains and URLs | `zany-bump.info` | `zany-bump.example` |
+| Phone | `(845) 501-0635` | `(845) 555-0135` |
+| IPv4 | `205.193.215.106` | `203.0.113.97` |
+| IPv6 | any address | `2001:db8:…` |
+| MAC address | any address | a locally administered one |
+
+The reservations behind them:
+
+- `example.com`, `.net`, `.org` and the `.example` top-level domain can never be
+  registered ([RFC 2606](https://datatracker.ietf.org/doc/html/rfc2606)).
+- `192.0.2.0/24`, `198.51.100.0/24` and `203.0.113.0/24` are for documentation
+  ([RFC 5737](https://datatracker.ietf.org/doc/html/rfc5737)), as is `2001:db8::/32`
+  for IPv6 ([RFC 3849](https://datatracker.ietf.org/doc/html/rfc3849)).
+- 555-0100 to 555-0199 are reserved for fiction in North American numbering.
+- A MAC address with the "locally administered" bit set is never assigned to a
+  manufacturer.
+
+<Callout type="warning" title="Safer, not harmless">
+Safe values lower the risk; they don't remove it. Names, street addresses, IBANs and
+card numbers stay as Faker makes them: they pass their checksums, and some may match
+real people or accounts by chance. Keep fake data in test systems, and don't send it
+to real payment or messaging services.
+</Callout>
+
+## Seeding a database from a script
+
+The API returns the same records as the page:
+
+```bash
+curl -s '@@API_BASE@@/api/v1/fake-data?fields=person.fullName,person.email,location.city&count=3&seed=2026'
+```
+
+From there it's a few lines in any language:
+
+<Tabs>
+<Tab label="Node.js">
+```js
+const url = new URL('@@API_BASE@@/api/v1/fake-data')
+url.searchParams.set('fields', 'person.fullName,person.email,location')
+url.searchParams.set('count', '50')
+url.searchParams.set('seed', '2026')
+
+const { records } = await (await fetch(url)).json()
+for (const r of records) {
+  await db.query(
+    'INSERT INTO customers (name, email, city, zip) VALUES ($1, $2, $3, $4)',
+    [r.fullName, r.email, r.city, r.zipCode],
+  )
+}
+```
+</Tab>
+<Tab label="Python">
+```python
+import requests
+
+records = requests.get(
+    "@@API_BASE@@/api/v1/fake-data",
+    params={"fields": "person.fullName,person.email,location", "count": 50, "seed": 2026},
+    timeout=10,
+).json()["records"]
+
+cur.executemany(
+    "INSERT INTO customers (name, email, city, zip) VALUES (%s, %s, %s, %s)",
+    [(r["fullName"], r["email"], r["city"], r["zipCode"]) for r in records],
+)
+```
+</Tab>
+<Tab label="SQL (CSV)">
+```sql
+-- Download the CSV from the page, then, in psql:
+\copy customers (full_name, email, city, zip_code)
+  FROM 'fake-data.csv' WITH (FORMAT csv, HEADER true)
+```
+</Tab>
+</Tabs>
+
+A request holds at most 100 records and 1,000 values (fields × records), which keeps
+each one fast. For a bigger table, make several calls with different seeds (`seed=1`,
+`seed=2`, …): the result is still reproducible. For an `id` that stays unique across
+calls, use `misc.uuid`, or let the database assign one. If you need identifiers on
+their own, the <ToolLink tool="uuid" /> is the dedicated tool.
+
+AI assistants connected to our [MCP server](/mcp) get the same thing as the
+`generate_fake_data` tool, so "write a seed script with 50 customers" can be
+answered with real generated data instead of invented examples.
