@@ -339,7 +339,7 @@ const DEFAULT = EXAMPLES[0]
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 
-/** Power-of-two slider plus an exact count on its right. */
+/** Number of hosts needed; the subnet is rounded up to the next block size. */
 function HostsControl({
   hosts,
   minPrefix,
@@ -348,36 +348,18 @@ function HostsControl({
   onChange,
 }: {
   hosts: number
-  /** Largest block allowed (smallest prefix number). */
+  /** Largest block allowed (smallest prefix number), caps the spinner. */
   minPrefix: number
   reservation: SubnetReservation
   label: string
   onChange: (hosts: number) => void
 }) {
-  const maxPrefix = SUBNET_RESERVATIONS[reservation].maxPrefix
   const prefix = prefixForHosts(hosts, reservation)
-  const lo = Math.min(minPrefix, prefix ?? minPrefix)
-  const steps = maxPrefix - lo
-  const position = prefix === null ? steps : maxPrefix - prefix
   const [draft, setDraft] = useState<string | null>(null)
-  const maxHosts = usableHostsForPrefix(lo, reservation)
+  const maxHosts = usableHostsForPrefix(Math.min(minPrefix, prefix ?? minPrefix), reservation)
 
   return (
     <div className="sp-hosts">
-      <input
-        type="range"
-        className="sp-slider"
-        min={0}
-        max={steps}
-        value={Math.min(position, steps)}
-        disabled={steps === 0}
-        aria-label={`${label}: block size`}
-        aria-valuetext={prefix === null ? undefined : `/${prefix}, ${usableHostsForPrefix(prefix, reservation)} hosts`}
-        onChange={(e) => {
-          setDraft(null)
-          onChange(usableHostsForPrefix(maxPrefix - Number(e.target.value), reservation))
-        }}
-      />
       <input
         type="number"
         className="sp-number"

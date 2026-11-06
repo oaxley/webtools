@@ -219,7 +219,8 @@
 }
 
 .sp-name {
-  flex: 0 1 170px;
+  flex: 1 1 170px;
+  max-width: 320px;
   font-weight: 600;
 
   &::placeholder {
@@ -239,17 +240,9 @@
 }
 
 .sp-hosts {
-  flex: 1 1 260px;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.sp-slider {
-  flex: 1;
-  min-width: 80px;
-  margin: 0;
-  accent-color: var(--accent);
+  gap: 6px;
 }
 
 .sp-number {
