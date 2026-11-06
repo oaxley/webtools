@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigationType } from 'react-rou
 import './App.css'
 import { Logo } from './components/Logo'
 import { ThemeSwitch } from './components/ThemeSwitch'
-import { CATEGORIES, NAV_ITEMS, TOOLS } from './tools'
+import { NAV_ITEMS } from './tools'
 
 function SiteFooter() {
   const year = new Date().getFullYear()
@@ -23,25 +23,12 @@ function SiteFooter() {
             logged.
           </p>
         </div>
-        {CATEGORIES.map((cat) => {
-          const tools = TOOLS.filter((t) => t.category === cat.id && t.available)
-          if (tools.length === 0) return null
-          return (
-            <nav key={cat.id} className="site-footer-col" aria-label={`${cat.label} tools`}>
-              <h2>{cat.label}</h2>
-              <ul>
-                {tools.map((t) => (
-                  <li key={t.id}>
-                    <Link to={t.path}>{t.name}</Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )
-        })}
         <nav className="site-footer-col" aria-label="Resources">
           <h2>Resources</h2>
           <ul>
+            <li>
+              <Link to="/tools">All tools</Link>
+            </li>
             <li>
               <Link to="/blog">Blog</Link>
             </li>

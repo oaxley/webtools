@@ -272,7 +272,7 @@
 
 .site-footer-inner {
   display: grid;
-  grid-template-columns: minmax(240px, 1.6fr) repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 32px;
   max-width: var(--content-max);
   margin: 0 auto;

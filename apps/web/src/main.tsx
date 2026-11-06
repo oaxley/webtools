@@ -21,6 +21,7 @@ import TotpToolRoute from './pages/TotpToolRoute.tsx'
 import UlidGenerator from './pages/UlidGenerator.tsx'
 import UuidGenerator from './pages/UuidGenerator.tsx'
 import X509Decoder from './pages/X509Decoder.tsx'
+import ToolsIndex from './pages/ToolsIndex.tsx'
 import NotFound from './pages/NotFound.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -29,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route element={<App />}>
           <Route index element={<Home />} />
+          <Route path="tools" element={<ToolsIndex />} />
           <Route path="ip" element={<IpCalculator />} />
           <Route path="subnet-planner" element={<SubnetPlanner />} />
           <Route path="my-ip" element={<MyIp />} />

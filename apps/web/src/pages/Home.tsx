@@ -5,86 +5,13 @@ import { GridCard } from '../blog/cards'
 import { posts } from '../blog/posts'
 import { API_BASE_URL, MCP_URL } from '../blog/site'
 import CopyJsonButton from '../components/CopyJsonButton'
-import { CATEGORIES, TOOLS, type Tool } from '../tools'
+import { RecentTools, ToolGrid, ToolSearch } from '../components/ToolCard'
+import { searchTools, useRecentTools } from '../recentTools'
+import { TOOLS } from '../tools'
 import { usePageMeta } from '../usePageMeta'
 import './Home.css'
 
-const RECENT_KEY = 'webtools:recent-ids'
-const MAX_RECENT = 6
 const LATEST_POSTS = 3
-
-function loadRecentIds(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENT_KEY)
-    const parsed: unknown = raw ? JSON.parse(raw) : []
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((id): id is string => typeof id === 'string')
-  } catch {
-    return []
-  }
-}
-
-function ToolTile({ tool, size = 'md' }: { tool: Tool; size?: 'sm' | 'md' }) {
-  return (
-    <span
-      className={`tool-tile tool-tile-${size}`}
-      aria-hidden="true"
-      style={{ '--tile-accent': tool.accent } as React.CSSProperties}
-    >
-      {tool.monogram}
-    </span>
-  )
-}
-
-function ToolCard({ tool, onOpen }: { tool: Tool; onOpen: (tool: Tool) => void }) {
-  const inner = (
-    <>
-      <ToolTile tool={tool} />
-      <span className="tool-body">
-        <span className="tool-name">
-          {tool.name}
-          {!tool.available && <span className="badge badge-neutral">Soon</span>}
-        </span>
-        <span className="tool-desc">{tool.description}</span>
-      </span>
-      {tool.available && (
-        <span className="tool-arrow" aria-hidden="true">
-          →
-        </span>
-      )}
-    </>
-  )
-
-  if (tool.available) {
-    return (
-      <Link className="tool-card" to={tool.path} onClick={() => onOpen(tool)}>
-        {inner}
-      </Link>
-    )
-  }
-  return (
-    <div className="tool-card tool-card-soon" aria-label={`${tool.name} (coming soon)`}>
-      {inner}
-    </div>
-  )
-}
-
-function SearchIcon() {
-  return (
-    <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
-      <line
-        x1="16.5"
-        y1="16.5"
-        x2="21"
-        y2="21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
 
 // ---- "Use it anywhere" -------------------------------------------------------
 
@@ -266,37 +193,9 @@ function Home() {
   })
 
   const [query, setQuery] = useState('')
-  const [recentIds, setRecentIds] = useState<string[]>(loadRecentIds)
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return TOOLS.filter((t) =>
-      [t.name, t.description, ...t.tags].join(' ').toLowerCase().includes(q),
-    )
-  }, [query])
-
-  // Only tools the visitor actually opened, newest first.
-  const recent = useMemo(() => {
-    const byId = new Map(TOOLS.map((t) => [t.id, t]))
-    return recentIds
-      .map((id) => byId.get(id))
-      .filter((t): t is Tool => t !== undefined && t.available)
-      .slice(0, MAX_RECENT)
-  }, [recentIds])
-
-  const handleOpen = (tool: Tool) => {
-    if (!tool.available) return
-    setRecentIds((prev) => {
-      const next = [tool.id, ...prev.filter((id) => id !== tool.id)].slice(0, MAX_RECENT)
-      try {
-        localStorage.setItem(RECENT_KEY, JSON.stringify(next))
-      } catch {
-        // Storage unavailable (private mode, etc.): recents just won't persist.
-      }
-      return next
-    })
-  }
+  const { recent, recordOpen } = useRecentTools()
+  const results = useMemo(() => (query.trim() ? searchTools(query) : []), [query])
+  const featured = TOOLS.filter((t) => t.featured && t.available)
 
   const searching = query.trim().length > 0
   const availableCount = TOOLS.filter((t) => t.available).length
@@ -317,27 +216,7 @@ function Home() {
             sign-up, nothing logged.
           </p>
 
-          <form className="search-bar" role="search" onSubmit={(e) => e.preventDefault()}>
-            <SearchIcon />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search tools… (e.g. “subnet”, “jwt”, “uuid”)"
-              aria-label="Search tools"
-              autoComplete="off"
-            />
-            {query && (
-              <button
-                type="button"
-                className="search-clear"
-                onClick={() => setQuery('')}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
-          </form>
+          <ToolSearch query={query} onChange={setQuery} />
 
           <ul className="home-facts" aria-label="Highlights">
             <li>
@@ -359,57 +238,24 @@ function Home() {
                 : `No tools found for “${query.trim()}”`}
             </h2>
             {results.length > 0 && (
-              <div className="tools-grid">
-                {results.map((tool) => (
-                  <ToolCard key={tool.id} tool={tool} onOpen={handleOpen} />
-                ))}
-              </div>
+              <ToolGrid tools={results} onOpen={recordOpen} />
             )}
           </section>
         ) : (
           <>
-            {recent.length > 0 && (
-              <section className="home-recent" aria-labelledby="recent-title">
-                <h2 id="recent-title">Recently used</h2>
-                <ul>
-                  {recent.map((tool) => (
-                    <li key={tool.id}>
-                      <Link to={tool.path} onClick={() => handleOpen(tool)}>
-                        <ToolTile tool={tool} size="sm" />
-                        {tool.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            <RecentTools recent={recent} onOpen={recordOpen} />
 
             <section className="home-section" aria-labelledby="tools-title">
-              <div className="home-section-head">
-                <p className="eyebrow">The toolbox</p>
-                <h2 id="tools-title">All tools</h2>
+              <div className="home-section-head home-section-head-row">
+                <div>
+                  <p className="eyebrow">The toolbox</p>
+                  <h2 id="tools-title">Popular tools</h2>
+                </div>
+                <Link className="button button-secondary" to="/tools">
+                  All {availableCount} tools <span aria-hidden="true">→</span>
+                </Link>
               </div>
-              <div className="category-list">
-                {CATEGORIES.map((cat) => {
-                  const tools = TOOLS.filter((t) => t.category === cat.id).sort(
-                    (a, b) => Number(b.available) - Number(a.available),
-                  )
-                  if (tools.length === 0) return null
-                  return (
-                    <div className="category" key={cat.id}>
-                      <div className="category-head">
-                        <h3>{cat.label}</h3>
-                        <p>{cat.blurb}</p>
-                      </div>
-                      <div className="tools-grid">
-                        {tools.map((tool) => (
-                          <ToolCard key={tool.id} tool={tool} onOpen={handleOpen} />
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <ToolGrid tools={featured} onOpen={recordOpen} />
             </section>
           </>
         )}

@@ -14,14 +14,15 @@
  *     dist/blog/<slug>.html         one per post: title, description,
  *                                   canonical, Open Graph, JSON-LD
  *     dist/blog/rss.xml             RSS 2.0 feed
- *     dist/sitemap.xml              home, tools, /api, /mcp and posts
+ *     dist/sitemap.xml              home, /tools, tools, /api, /mcp and posts
+ *     dist/tools.html               the full tool list
  *     dist/<tool>.html              one per available tool (meta tags)
  *     dist/mcp.html                 the MCP server page
  *     dist/api.html                 the REST API page
  *     dist/openapi.yaml             the OpenAPI document, `servers`
  *                                   pointed at the API origin
  *     dist/og/**.png                1200×630 link-preview images
- *                                   (default, blog, api, mcp, posts,
+ *                                   (default, blog, all-tools, api, mcp, posts,
  *                                   tools)
  *     dist/apple-touch-icon.png     180×180 app icon
  *   `<name>.html` (not `<name>/index.html`) so Pages serves them at the
@@ -40,6 +41,7 @@ import { loadPosts, POSTS_DIR } from './blogPosts.ts'
 import { coverOf } from '../src/blog/cover.ts'
 import { MCP_PAGE } from '../src/content/mcpMeta.ts'
 import { API_PAGE, OPENAPI_PATH } from '../src/content/apiMeta.ts'
+import { TOOLS_PAGE } from '../src/content/toolsMeta.ts'
 import { buildApiReference, OPENAPI_FILE, openApiFor } from './apiReference.ts'
 import { OG_HEIGHT, OG_WIDTH, renderAppIcon, renderOgCard, type OgCard } from './ogImages.ts'
 
@@ -162,6 +164,7 @@ ${items}
 function renderSitemap(posts: PostMeta[], siteUrl: string): string {
   const urls: { loc: string; lastmod?: string }[] = [
     { loc: `${siteUrl}/` },
+    { loc: `${siteUrl}${TOOLS_PAGE.path}` },
     ...TOOLS.filter((t) => t.available).map((t) => ({ loc: `${siteUrl}${t.path}` })),
     { loc: `${siteUrl}${API_PAGE.path}` },
     { loc: `${siteUrl}${MCP_PAGE.path}` },
@@ -295,6 +298,23 @@ export function blogStatic(options: Options = {}): Plugin {
           footer: [`${list.length} guides`, 'RSS feed'],
         }),
         imageAlt: `${SITE_CONFIG.name} blog`,
+      })
+
+      // `og/tools/` holds the per-tool images, hence `all-tools.png`.
+      page(`${TOOLS_PAGE.path.slice(1)}.html`, {
+        title: `${TOOLS_PAGE.title} — ${SITE_CONFIG.name}`,
+        description: TOOLS_PAGE.description,
+        url: `${siteUrl}${TOOLS_PAGE.path}`,
+        type: 'website',
+        image: await og('all-tools', {
+          eyebrow: 'The toolbox',
+          title: TOOLS_PAGE.title,
+          description: TOOLS_PAGE.description,
+          monogram: TOOLS_PAGE.monogram,
+          accent: TOOLS_PAGE.accent,
+          footer: [toolsLine, 'Runs in your browser', 'No sign-up'],
+        }),
+        imageAlt: `${SITE_CONFIG.name}: all tools`,
       })
 
       const apiTools = available.filter((t) => t.api).length

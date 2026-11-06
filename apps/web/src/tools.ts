@@ -21,6 +21,8 @@ export interface Tool {
   accent: string;
   /** Tools that are not ready yet render with a "Soon" badge. */
   available: boolean;
+  /** Shown in the home page's short list (the rest live on `/tools`). */
+  featured?: boolean;
   /** Matching REST endpoint (relative to the API origin), if any. */
   api?: { method: 'GET' | 'POST'; path: string };
   /** Matching MCP tool name, if any. */
@@ -39,6 +41,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Home', href: '/' },
+  { label: 'Tools', href: '/tools' },
   { label: 'Blog', href: '/blog' },
   { label: 'API', href: '/api' },
   { label: 'MCP', href: '/mcp' },
@@ -58,6 +61,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'GET', path: '/api/v1/ip' },
     mcp: 'calculate_cidr',
+    featured: true,
   },
   {
     id: 'subnet-planner',
@@ -95,6 +99,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'POST', path: '/api/v1/jwt' },
     mcp: 'decode_jwt',
+    featured: true,
   },
   {
     id: 'dns',
@@ -129,6 +134,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'POST', path: '/api/v1/x509' },
     mcp: 'decode_x509',
+    featured: true,
   },
   {
     id: 'hash',
@@ -142,6 +148,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'POST', path: '/api/v1/hash' },
     mcp: 'compute_hash',
+    featured: true,
   },
   {
     id: 'json',
@@ -218,6 +225,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'GET', path: '/api/v1/uuid' },
     mcp: 'generate_uuid',
+    featured: true,
   },
   {
     id: 'nanoid',
@@ -257,6 +265,7 @@ export const TOOLS: Tool[] = [
     available: true,
     api: { method: 'GET', path: '/api/v1/password' },
     mcp: 'generate_password',
+    featured: true,
   },
   {
     id: 'totp',
